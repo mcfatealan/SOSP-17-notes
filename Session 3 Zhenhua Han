@@ -1,0 +1,70 @@
+DATE & TIME:  1:30 PM - 2:45 PM, Oct. 29 2017
+Session 3: In-network computing
+
+========================================
+
+Eris: Coordination-Free Consistent Transactions Using In-Network Concurrency Control
+Speaker: Jialin Li
+
+Key Points:
+	1. provide strong consistency and isolation guarantees introduce extensive coordination overhead
+	2. Eris avoids both replication and transaction coordination overhead with in-network concurrency control
+	3. Eris can process a large class of distributed transactions in a single round-trip from the client to the storage system without any explicit coordination between shards or replicas in the normal case
+
+Q&A
+Q1: How to scale the system if there is only one sequencer?
+A: The system's performance will be bounded by the sequencer. But, we have other people that have demonstrated it is possible to build the system on the very high bandwidth and fast programmable switch that the transaction rate can achieve line rate. Software packet processing with DPDK can also achieves very high rate. 
+
+Q2: How will the hardware limitation impact the system?
+A: There are some factors can affect the system such as the number of states it can keep. Please read our paper for further information.
+
+Q3: If multiple sequencers are used for high availability, what coordination is needed between them?
+A: The system maintains a global epoch number. Please read the paper for details.
+
+Q4: How to detect drop when the last packet is missed? Does it need to wait for the next transaction, or are there timeouts?
+A: Currently, we only detect the packet drop with the next packet. 
+
+Q5: How to restart the sequencer? 
+A: We have multiple sequencers for HA. When a sequencer needs to restart, the SDN controller will select the new sequencer.
+
+
+========================================
+
+
+NetCache: Balancing Key-Value Stores with Fast In-Network Caching
+Speaker: Xiaozhou Li
+Key Points:
+	1. NetCache uses in-network cache as the cache for in-memory systems.
+	2. Programmable switches (e.g. Tofino P4 switch) enables the possibility to program network data plane.
+	3. With NetCache, a single switch can process 2+ billion queries per second for 64K items with 16-byte keys and 128-byte values, while only consuming a small portion of its hardware resources
+
+Q&A
+
+Q1: Which protocols are used, such as UDP/TCP?
+A: 
+
+Q2: How to scale to multiple racks?
+A: It is an interesting future work. This work only considers single rack system.
+
+
+
+========================================
+KV-Direct: High-Performance In-Memory Key-Value Store with Programmable NIC
+Speaker: Bojie Li
+
+Key Points:
+	1. Programmable NICs are becoming more and more popular in modern data centers.
+	2. KV-Direct offloads the KVS to the FPGA in SmartNIC that bypasses CPU. 
+	3. KV-Direct improves power efficiency by 3x, while keeping tail latency below 10 µs
+
+Q1: Should FPGA have larger SRAM to support KV-Direct for higher performance?
+A: This system is designed based on the FPGA NIC that has been deployed  Azure cloud. We do not consider designing a new architecture specialized for KV system.
+
+Q2: Why FPGA-Xilinx performs so badly?
+A: It is because FPGA-Xilinx uses an old network which only has 10 Gbps connection.
+
+Q3: What is the difference of this work with other KV storage system using FPGA?
+A: The 4 design principles we propose are they are very effective. Moreover, these 4 principles will be helpful when designing other FPGA systems.
+ 
+Q4: As far as I see, host almost does nothing for K-V store, but the network bandwidth is mostly used. Therefore, why don’t you build FPGA standalone platform?
+A: FPGA has limited DRAM. The FPGA still need external RAM. KV-Direct still needs CPU to manage the RAM, although with very low overhead.

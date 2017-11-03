@@ -1,0 +1,80 @@
+DATE & TIME: 31st Oct 1:00 pm
+SESSION TITLE: Session 2 Understanding failures
+TALK TITLE: LOG20
+SPEAKER:  XU ZHAO
+KEY POINTS:
+
+Motivation:
+(1) Log are only information for post debugging to reconstruct exec path
+(2) Find the most informative placement of log statements, under overhead threshold
+
+- The question of balance between informativeness and overhead.
+- Logging code are more often changed than others.
+
+Implementation 
+This paper uses entropy to measure informativeness, and proposed an algorithm to find informativeness. Log20 is the tool they built to find right balance between informativeness and overhead.
+
+The detailed implementation are 1) tracing library for collect path profile(used in calculating entropy) 2) Dynamic programming for log placement.
+
+
+Q & A:
+  Q1. How to disambiguate variables (data structures) and paths, since this paper only consider paths? (not quite clear)
+  A1. Log20 records branches variables based on logEnhancer.
+
+ Q2 How to balance the overhead and device space, in terms of speed of device and storage(different level of storage).
+ A2 This can be estimated by the length of message, we can calculate it on average, and see its size fit.
+
+ Q3 Not all paths takes the same weight, it is clear that some paths are more often executed. Can Log20 consider this? 
+ A2. For now, LOG20 can choose different path based on probability. The rare executed log has more value.
+
+
+DATE & TIME: 31st Oct 1:00 pm
+SESSION TITLE: Session 2 Understanding failures
+TALK TITLE:  Lazy Diagnosis of In-Production Concurrency Bugs
+SPEAKER: Baris Kasikci 
+KEY POINTS:
+Motivation:
+
+1) Why in-production bugs are hard -> fix real bugs impact users 2) short release cycles make in house testing challenging.
+2) Read and write and read not existing variables RWR, replay this need to remember order of events!
+
+The core hypothesis is that coarse interleaving of this kind of bugs can help determine the order of events happened.
+
+Lazy diagnosis model includes
+1) Hybrid points-to analyse: use control flow traces
+2) Type-base ranking: type that matches the falling instructions¡¯ operand type has a higher ranking
+3) Bug pattern computation: use timing packets from intel processor trace
+4) Statistical diagnosis
+
+Q1 This evaluation only deal with crushes, what about other concurrency bugs if possible? Like some latent bugs which does not cause crush?
+A1 If not lead to a failure, it would not be help. It needs obseravable bugs for the analysis.
+
+Q2 What percentage of concurrency bugs cause data corruption or crash?
+A2 No data, but more people works on crash bugs.
+
+DATE & TIME: 31st Oct 1:00 pm
+SESSION TITLE: Session 2 Understanding failures
+TALK TITLE: CrystalNet: Faithfully Emulating Large Production Networks
+SPEAKER: Hongqiang Harry Liu
+KEY POINTS:
+
+key points: crystalnet
+Motivation:
+1) Reliability is crucial to cloud users.
+2) Downtime cost data center managers
+What caused the outages -> network is the major cause.
+
+network configurations, software bugs, hardware failures and human errors are the main causes. It is would be wonderful to have an emulator that has everything. However it would be too expensive to have new hardware only for emulation. So use virtualized hardware to do the experiment.
+Several challenges
+1) scalability -> different machines: vm, containers, hardware storage
+2) flexibility 
+3) correctness and cost efficiency -> boundary is needed, otherwise it would be the whole Internet.
+
+Q1 How it works with emulation for large capacity issues? (not quite sure)
+A1 Can not handle data plane capacity problems, just for correctness check.
+
+Q2 How to choose the resources needed to run the emulation?
+A2 Based on experience, and try by adding more resources to meet the needs.
+
+Q3 How much for one host and one router?
+A3 It depends on the sandbox of vendors, case by case.

@@ -1,0 +1,283 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+DATE & TIME: October 10, 2017 10:15pm
+SESSION TITLE: Verification
+TALK TITLE: Hyperkernel: Push-Button Verification of an OS Kernel
+SPEAKER: Helgi Sigurbjarnarson
+KEY POINTS:
+  - Kernel's are essential for correctness, and reliability
+  - Formal verification provides a high assurance of correctness
+    - Requires large amount of manual effort
+  - Goal: How much can minimize proof burden for formal verification?
+  - Result: Hyperkernel
+    - Fully verified using Z3
+    - Uniz-like OS kernel
+    - Limitations
+      - Uniprocessor
+      - Initialization & glue code unverified
+  - Challenges:
+    - loops and invariants are hard to verify
+    - Kernel pointers hard to reason about
+    - C is difficult to model
+  - Solutions:
+    - Finite interfaces
+    - Use identity mapping for kernel
+    - Verify at LLVM Intermediate Representation
+  - Overview:
+    - High level specification written in high level language (python)
+      - Fed into LLVM creating boolean expression
+    - Checked against state machine specification in verifier (Z3)
+    - e.g. Isolation property: for any virtual address in process p, if the virtual address maps to apage the page must be exclusively owned by p.
+  - Finite interface design:
+    - Verification though symbolic execution
+      - Goal: Minimize proof burden
+      - Approach: Finite interface design
+        - Minimize verification issues around loops and undefined behavior
+      - Techniques:
+        - Push loops into user-space
+        - Explicit resource management
+        - Decompose complex systemcalls (e.x. exec)
+        - Validate linked data structures
+        - Smart SMT encodings
+      - Ex. sbrk() system call
+        - increments program data space by some number of bytes
+        - Goal: Redesign making finite, verifiable.
+        - ISSUE: increment size
+          - Causes kernel to iterate through pages --loop
+          - SOLUTION: change to sbrk_one_page()
+        - ISSUE - must walk multi-level page table
+          - SOLUTION: change to multiple system calls.
+  - Demo
+  - Evaluation / Lessons Learned
+    - What is the development effort?
+      - State machine specification
+      - Relate LLVM data structures to abstract specification state
+      - Write checks for representation of needed invariants
+      - <Missed point>
+    - Is the design effective for scalable verification
+      - 45 minutes on single core machine
+      - 15 minutes on 8 core machine
+      - Design is effective for scalable verification
+    - Conclusion
+      - Feasible to verify simple Unix-like OS kernel
+      - Automatic verification through symbolic execution
+      - Verifiability as a first-class system design concern
+        
+
+QESTIONS AND ANSWERS:
+Q: Your breakdown of system calls breaks abstraction, the kernel call interface
+breaks per machine.  Is this a reasonable tradeoff
+A: Yes, this can be abstracted to a user-level library.  You would need this
+library per machine, but I still believe its verifiable
+
+Q: You've changed the system-call abstraction, and are now only verifying a part
+of it, pushing functionality to user-level.  Are you really verifying the full
+fucntionality?
+A: We now know that the kernel level funcitonality is correct, you can now start
+verifying the user-level to ensure that is correct.
+   (Counter Q): but you'll not get loops with push-button verification
+   A: True
+
+Q: What changes are needed to bring to a concurrent kernel?
+A: We don't reason about interleaved execution.  We don't really have a good
+answer for reasoning about interleaving between kernel and user space.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+DATE & TIME: October 10, 2017 10:40pm
+SESSION TITLE: Verification
+TALK TITLE: Hyperkernel: Verifying a high-performance crash-safe file system using a tree specification
+SPEAKER: Tej Chajed
+KEY POINTS:
+  - Filesystems are difficult to make correct
+    - Complicated implementation (data-structures, disk-layout)
+    - Crash consistency
+  - Filesystems have many subtle bugs
+    - e.x. in ext4 a bug took 6 years to find when two features inabled
+  - Approach: formal verification
+    - Write specification
+    - Prove implementation meets specification
+    - Avoids large class of bugs
+  - Existing verified file systems
+    - Many prior works
+    - None match performance of state-of-the-art filesystems
+  - Strawman: optimize FSCQ
+    - PROBLEM: FSCQ's specification is incompatible with high-performance
+      - Spec changes filesystem performance
+      - E.g. deferred commit
+        - FSCQ says if create(f) has returned, file must be on disk
+        - Deferred commit violates this
+      - All existing verified filesystems have optimizations that sacrifice
+          performance
+  - Congribution: DFSCQ
+    - Verified crash-safe filesystem
+    - Journal-based disk writing
+    - Performance close to ext4
+    - <missed points>
+  - Specifying file system
+    - Specification abstracts implementation details
+      - E.g. Specification is tree, implementation can use hash table
+      - Specification describes transition of states
+    - Challenges specifying crash behavior
+    - Optimizations mean crashes can be complex
+      - Deferred commit:
+        - If unlink(g), g may or may not be on disk
+        - Single tree cannot represent this
+        - Instead use sequence of trees - tree sequences
+          - Operations add more trees to possible valid states
+          - On crash any tree in tree sequence is possible after commit
+        - Specification fsync
+          - Replace whole tree sequence w/ latest tree in sequence
+      - Log bypass writes:
+        - Updates file data-blocks in place, skipping logs
+        - challenging crash behaviors -
+          - e.g. rename f, and change write, writes reordered
+          - <missed points>
+      - Data caching
+        - PROBLEM: Cached data may or may not be written
+        - Specify data caching: block sets
+          - On crash tree can contain any data in block sets
+          - Allows data reordering safely
+          - fdatasync says blocksets collapse tree
+  - Proof
+    - Prove that all system calls return values that match specification
+    - Also, prove that abstract disk state matches specification tree in proper
+        way
+  - Many single layer optimizations:
+    - e.g. directory name cache
+    - Cross-layer optimizations
+      - block allocator free-bit cache
+      - logging, checksums, deferred commit & more
+    - 75k lines of CoQ proof code
+  - Performance evaluation
+    - DFSCQ is "competitive" with ext4
+      - faster for some benchmarks
+      - slower for others (partially due to haskell runtime environment)
+  - Limitations:
+    - High cpu overhead
+    - Single-threaded (only 1 operation at a time)
+  - Conclusion:
+    - DFSCQ verified efficient crash-safe files system
+    - Precise tree-based specification guarantees consistency
+    - Proof implementation meets specification
+    - Performance on par with Linux ext4
+
+QESTIONS AND ANSWERS:
+Q: Why is tree interface right high-level spec, instead of log of operations? --
+is tree-based fundamentally better?
+A: I think the difference comes when you reason about what data your going to
+read from your file-system.  The tree abstraction summarizes the current state.
+
+Q: The Haskell extractor seems old, have you tried a newer extractor to improve
+performance?
+A: The extraction facility is a coq feature, we tried ocaml extraction a while
+ago, but we didn't recall it improving performance.
+
+Q: It seems the tree specification is powerful, have you tried to implement more
+features, like snapshotting?
+A: Snapshotting is probably not hard at a specification level, but it is harder
+at an implementation level
+
+Q: Are you planning to add more features?
+A: Our first focus will be improving CPU overhead, with more performance to
+follow.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+DATE & TIME: October 10, 2017 11:05pm
+SESSION TITLE: Verification
+TALK TITLE: Hyperkernel: Komodo: Using verification to disentangle secure-enclave hardware from software
+SPEAKER: Andrew Ferraiuolo
+KEY POINTS:
+  - Long held goal: do computation on remote machines
+    - However, many possible attacks/vulnerabilities in doing so
+      - Software attacks, os attacks, hardware attacks
+    - SGX provides security features to safely do remote execution
+      - Allows remote execution without concern about remote tampering
+      - Provides remote attestation -- prove to remote party enclave is
+          trustworthy
+      - Instructions provide attacks from remote OS
+    - SGX Limitations:
+      - Slow to evolve -- tied to hardware
+      - SGX1 had no  dynamic memory management
+      - SGX is complex -- approaching microkernel hardware
+        - And getting more complex
+        - Inherently not more trustworthy than hardware
+  - This work: Komodo
+    - Enclave management in software
+    - Evolve independent of hardware
+  - Komodo monitor software:
+    - Mimics SGX instructions
+    - Minimal hardware requirements
+  - Hardware requirements:
+    - Isolate memory (e.g. encryption)
+    - Key-generation for attestation 
+    - Protection modes for enclave, monitor
+  - Prototype on TrustZone
+    - Two worlds, Normal World and Secure World
+    - Secure World memory is isolated from Secure World
+  - Komodo provides interface closely related to SGX instruction set
+    - INIT_ADDRSPACE, INIT_L2PT, MAP_SECURE / MAP_INSECURE, INIT_THREAD,
+    - FINALISEI() - verifies enclave is created safely
+    - ENTER() - executes the secured enclave
+    - <points missed>
+  - Enclave Execution
+    - Compute data on secure pages
+    - Communicate with outside world via insecure pages
+  - Verification
+    - Two goals: Correct & high-level security properties
+  - Security Properties
+    - Confidentiality - enclave secret state cannot leak to adversary
+    - Integrity - adversary cannot camper with enclave trusted contents
+    - Formalized as noninterference - adversarially-observable outputs are
+        purely determined by adversarially-controlled inputs
+  - Verifcation approach
+    - Written in Dafny - Z3 backend
+  - Evaluation
+    - Microbenchnark
+      - Prototype on Raspberry Pi2
+      - Roughly order-of-magnitude speedup over SGX (cycle count)
+        - In part due to slower clock rate (but not entirely)
+    - Notary Application
+      - Komodo enclave has roughly equivalent performance to SGX
+    - Verification Effort
+      - 2 person-years of effort
+    - Adaptability
+      - Motivation: software can evolve more quickly than ahrdware
+      - SGX2 specified 3 years ago, no implementation
+      - Komodo was extended to support dynamic memory in 6 person-months
+  - Lessons Learned
+    - Small code base is not a substitute for verification
+      - Verification caught real bugs in implementation
+    - Trusted components require extra diligence
+      - Bugs came from trusted input codebases
+    - Verification tools have improved, but room for improvement
+      - Timeouts / proof instability
+  - Conclusion
+    - SGX defends against powerful thread-model, but has limitations
+    - Komodo improves evolvability and security
+      - Allows software-speed evolution
+      - Provides formal-proof security
+    - Verification of enclave s is tractable and permits evolution
+
+QESTIONS AND ANSWERS:
+Q: How can you ensure that your specification meets your implementation. These
+properties may not trivially follow through refinement properties.
+A:  We prove by simulation that non-interference meets the abstract states, and
+that the abstract states meet the specification states.  <missed details>
+<Agrees to talk offline>
+
+Q: How do you take side-channels into account?
+A: We are not dealing with side-channels, they are not in scope for our work.
+
+Q: Are you considering any side-channels?
+A: Control-channels, such as when the OS controls page faults to manipulate
+behavior?
+
+Q: Can you provide freshness guarantee?  Can the OS swap out enclave memory and
+replace it with old memory?
+A: The OS cannot directly access enclave memory, because they are stored in
+Secure World.  We rely on the hardware mechanism that the enclave region is not
+made available directly to the hardware
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+

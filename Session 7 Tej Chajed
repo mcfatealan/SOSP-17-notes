@@ -1,0 +1,92 @@
+LITE Kernel RDMA Support for Datacenter Applications
+Date & Time: 30 Oct, 1:00pm
+Session 7, Potpourri
+Speaker: Shin-Yeh Tsai
+
+- balance of userspace, kernel, HW for networking has changed since Berkeley sockets in 1983
+- HPC world: HW expensive, developers cheap; RDMA works well in this setting
+- datacenters on the other hand have commodity HW and rapid change in SW
+  - RDMA is low level and makes resources sharing hard
+- native RDMA needs to in on-NIC SRAM cache page tables and store secret keys for each mem region
+  - limited mem, eventually caches thrash
+  - are we removing too much from kernel in favor of HW?
+- kernel gives abstraction, isolation
+  - move RDMA into kernel with a level of indirection
+- LITE: provides mem API, RPC API, sync API (only mem API in talk)
+- how to preserve perf with indirection?
+- one-sided RDMA: indirect through local kernel but don't interrupt remote kernel
+- avoid HW indirection, do this in kernel (permission check and address mapping)
+  - avoid page tables/mem regions in HW by registering single large physical address region in RDMA HW scales to large mem, constant time (no page table caching)
+- simple API exposes handles to remote mem
+- RPCs move syscall off critical path, get low latency (see paper)
+- apps don't require experts, small number of student days
+- eval: build LITE-Graph based on PowerGraph, 3.5-6x faster than PowerGraph
+- provide a good abstraction via indirection, by using only kernel for indirection, leverage kernel for isolation
+
+Q&A:
+- How does this compare to rsocket-based RDMA, VM-A (which is transparent to socket applications)?
+  LITE is also a sort of wrapper around RDMA but need to do performance comparison to understand.
+- Does LITE support VM migration?
+  some work on SROV (?); should be able to support migration
+- Are there security issues from having a single keys
+  trust kernel rather than management of secret keys; as long as kernel is correct, one key is fine
+
+ZygOS: Achieving Low Tail Latency for Microsecond-scale Networked Tasks
+Date & Time: 30 Oct, 1:25pm
+Session 7, Potpourri
+Speaker: Marios Kogias
+  
+- Zygos: Greek for balance
+- microsecond-scale RPCs with large fan-in and fan-out: tail latency matters
+  - here focus on edges of graph, good scheduling
+- queueing theory gives upper bounds for how well we can schedule
+- Linux floating epoll sockets provide work conservation (no cores are idle if there's work in the system), but dataplanes are currently faster due to being more efficient. Single queue is theoretically better but dataplane (multi-queue system) is better due to engineering.
+- measure theoretical models and look at performance on benchmarks to see convergence to model behavior
+- at moderate service times (eg, 25us), single queue matters more than low overhead of Ix (the dataplane system used in ZygOS)
+- Ix separates app and network layer
+  - ZygOS adds a shuffle layer in between to implement work stealing
+  - shuffle layer ensure work is moved back to home core to return to applications
+- need to deal with head-of-line blocking due to home core busy in userspace: use inter-processor interrupts to force kernel to process NIC receive queue or remote work queue
+- on benchmarks show that for bimodal service time, interrupts are required to get behavior that looks like theoretical single queue
+
+Q&A
+- does work stealing affect cache line misses?
+  [answer unclear, but seems they haven't worried about this, leave it to applications?]
+- Does ZygOS order requests for a single connection?
+  yes, was a difficult part of design; need to lock within a TCP stream
+- How do IPIs perform for multiple sockets and over 24 cores?
+  haven't measured multiple sockets, but with single socket IPIs perform well
+  note that IPIs still don't go through kernel
+
+ffwd: delegation is (much) faster than you think
+Date & Time: 30 Oct, 1:50pm
+Session 7, Potpourri
+Speaker: Jakob Erikkson
+(note that Sepideh, student first author, couldn't come since she's Iranian and could not obtain a visa)
+
+- throughput of acquiring locks is low; HW transfers cache lines and link latencies are high
+- proposed solution: delegation
+  dedicated thread holds data structure and clients send requests
+  - scales well to multiple requests from clients
+  - latency per request is still cache line transfer, but total throughput is high
+- ffwd: fast fly-weight delegation
+- clients write requests, server reads from queues
+  server sends response in blocks of 15 clients, clients poll for them
+- server builds a local response buffer (pointers to results), copy to shared global buffer and clients poll response vector
+- evaluate on apps which spend most time on critical sections
+  - methodology compares throughput for locking approaches/ffwd at best thread count for each method (biased a bit against ffwd)
+- lessons from microbenchmarks
+  - much better than anything else for single, coarse-grained lock (including HW atomic increment instruction)
+  - ffwd is bad with too many locks (eg, highly concurrent data structures)
+  - ffwd is ok if critical sections are long (example of lazy concurrent linked list)
+- why fast? requests are uncontended, buffer requests
+- why not faster? probably not enough concurrency on bus, bandwidth-delay product too low [not entirely clear, depends on some HW details]
+- overall message: delegation is faster than you think, and simple locking approach compared to other concurrency techniques
+
+Q&A
+- What is the innovation here, given delegation is an old idea?
+  delegation is faster than you think if done right, and provides an alternative to locking
+- What about remote core locking?
+  idea there was backward compatibility for locking apps (replace all locking with delegation), performance is not comparable
+- What NUMA node do you allocate on?
+  [answer not completely clear, but seems relatively straightforward to allocate close to clients or servers appropriately]

@@ -1,0 +1,166 @@
+SOSP notes - Sub-millisecond Stateful Stream Querying over Fast-evolving Linked Data
+Introduction
+large amount of streaming data
+stateful stream query not supported efficiently
+streaming data - high velocity
+how do we represent these datasets between streaming data and stored data?
+entities and relation between entities
+vertex - entities (tweet, user); edges - relation between entities (like, comment)
+continuous query - which ipad members created feeds that are liked by other ipad members?
+workload characteristics
+connectivity property
+combination of streaming data + stored data
+stored data evolve from streaming data
+composite design
+apache storm + wukong
+challenges
+cross-system cost
+inefficient query plan
+limited scalability
+high latency low throughput
+Integrated design 
+wukong+s
+streaming data + stored data in single system
+not trivial to implement
+Design
+Hybrid store (streaming + stored data)
+stream index (to efficiently query streaming range data)
+consistent data view (decentralized vectorization timestamp and bounded snapshot scalarization)
+Architecture
+Data is partitioned and stored on multiple servers
+timeless data versus timed data
+Benefit of hybrid store: no interference between timeless and timed data
+Consistent data snapshot
+order information important in streaming data
+Decentralized vector timestamp (VTS) - local VTS per ndoe and global minimum VTS
+Snapshot scalarization - using visible snapshots
+Evaluation
+spark streaming
+LSBench, CityBench
+single query latency
+Wukong+S - 13.7x speedup vs storm + wukong
+3 orders of magnitude of speedup for spark streaming
+Mixed workloads throughput
+Wukong+S - 1M queries/second on 8 nodes
+mixture of 3 queries - 1.08 qps
+Conclusion 
+stateful stream query over fast evolving linked data
+Wukong+S - distributed system using a novel integrated design
+Questions
+computation for multiple streaming queries?
+many platforms duplicate data; share common parts
+can we improve latency of composite using caching?
+caching can cause coherence problem
+event time in stream processing; how to handle out of order data
+use event time and currently don't consider out of order data
+
+SOSP notes - Optimizing Big-Data Queries Using Program Synthesis
+Introduction
+many companies run sqlite jobs on large clusters
+huge cost and resource consumption
+better query optimization can lead to significant savings
+Big data query optimization
+rewrites SQL queries to equivalent efficient queries
+synthesize query specific operators on the fly
+example query: two layers of group by required
+shuffles inhibit parallelism and performance
+every row in output depends only on few rows of input
+directly apply a map and reduce function on the attributes
+3.5x faster, shuffles 1/3rd the data, requires only half the cumulative CPU time
+Program synthesis
+completing a partial program that satisfies the specification
+scales only to 10s of lines
+requirements - specification and partial program
+restricting to linear complexity (one or two loops, for example)
+allow operator to use few additional flag operators
+Scaling synthesis
+query simplification
+synthesize UDO one part at a time
+reassemble full operator after synthesizing individual part operators
+Evaluation
+20 long running and hourly repeating SCOPE queries
+synthesis fails on one query, succeeds on 19 within 10 mins
+also, resource savings (for example, 5000 mins without optimization while 2000 mins with optimization)
+40% of queries are candidates for this optimization
+Open challenge
+synthesis relies on bounded model checking
+only partial soundness
+Applicability
+applies best to repeated queries
+Conclusion
+new technique for optimizing big data queries
+significant speedups on evaluated benchmarks
+new analyses for SQL queries to scale synthesis
+Questions
+Prior work - optimize DAG first; how does this compare against that?
+difference is in the goal of optimization - find query plan with fewer stages (for example, eliminate irrelevant columns) - come up with new operators which are non SQL like. 
+Can it understand/leverage underlying indices in the schema?
+if we can specifically annotate, we can leverage that (for example, unique timestamp)
+were there cases in which generated queries were worse?
+no, because we always choose linear operators (but no guarantees)
+how does it compare with other techniques? 
+we target optimizations that couldn't be obtained from standard compilers.
+manual effort - is it hard for anyone to configure it?
+UDO in C++, reason about it manually. still need to verify (bounded model checking)
+
+SOSP notes - Low-Latency Analytics on Colossal Data Streams with SummaryStore
+
+Motivation
+newer data is more important than older data
+Introduction
+colossal streaming data
+large amount of data generated per day (hundreds of TB to PB / day)
+Streaming analytics on colossal data 
+Forecast
+Recommend
+Detect outliers
+Telemetry
+In-memory analytics - expensive (also, secondary persistence required)
+conventional time series stores - high latency
+approximate data stores
+newer data is important
+existing stores are oblivious of this
+Summary store
+allocates fewer bits to older data than new: each datum decays over time
+Windowed summarization
+group values in windows and keep only window summaries
+To achieve decay, use longer timespan windows over older data
+Processing writes
+use bloom filters per window
+how do we move values between windows? 
+Ingest algorithm
+periodically compact data by merging consecutive windows
+Handling queries
+time ranges are allowed to be arbitrary, need not be window-aligned
+Query accuracy
+age = how far back in time query goes
+length = time-span query covers
+not suited for large age + small length
+Evaluation
+224 GB RAM, 10 x 1 TB disk
+1 PB on single node (micro-benchmark)
+Micro-benchmark
+poisson, pareto arrival process
+uniform random values
+compacted 100x (down to 10 TB)
+Prophet - time series forecasting
+10x compaction < 0.1% error
+Landmark
+protecting specific values
+example: outliers detection
+Conclusion
+time decayed summaries + landmarks
+data ingest mechanism
+works well in real applications and micro-benchmarks
+http://bit.do/summarystore
+Questions
+different applications may require different statistics. how do we calculate complicated statistics?
+support backup log, need to know the statistics required ahead of time
+same time decay for different operators?
+if needed different, can use multiple copies of the streams
+It sounds it can process limited "statistical" numbers. Don't you have requirements to process medians and/or percentiles?
+possible to approximate medians
+It seems SummaryStore repeatedly reads out data and writes it back? Any influence of this behavior on system performance?
+detailed discussion on the paper
+What explains the dip for the econ dataset at 100x?
+econ dataset is unpredictable and hence the dip

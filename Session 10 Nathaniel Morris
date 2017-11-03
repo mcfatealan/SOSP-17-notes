@@ -1,0 +1,50 @@
+DATE & TIME: 31st Oct, 8:30 am
+SESSION TITLE: Session 10 Storage Systems
+TALK TITLE: Strata: A Cross Media File System
+SPEAKER: Youngjin Kwon
+KEY POINTS:
+
+1. To attain fast writes, Starta separates the responsibilities of logging and digesting and assigns them to user-level software (LibFS) and the kernel (KernelFS), respectively.
+2.LibFS: Uses leases to manage concurrent file accesses. The kernel grants access to a small private space in NVM for efficient logging of file system updates.
+3. KernelFS: Digesting is done in parallel acorss multiple threads for high throughput and runs asynchronously in the background. KernelFS checks and enforces metadate integrity when digesting an application's log, such that when a digest completes, the digested data can become visible to other processes.
+
+Q& A:
+Q1. Now that you have increased thoughput, how does this affect the wer of the NVM?
+A1. Since Strata manages write amplification, the writes are more efficient and less unnecessary writes occur compared to other competitve techniques.
+
+DATE & TIME: 31st Oct, 8:55 am
+SESSION TITLE: Session 10 Storage Systems
+TALK TITLE: NOVA-Fortis: A Fault-Tolerant Non-Volatile Main Memory File System
+SPEAKER: Jian Xu
+KEY POINTS:
+
+1. Taking efficient snapshots:Nova-Fortis maintains a global snapshot ID for the file system and stores the current snapshot ID in each log entry. Creating a new snapshot in NOVA-Fortis does not block file systgem write operations, and if no files are mmap()'d it takes constant time regardless of the file system volume size. To restore the file system to a snapshot, NOVA-Fortis mounts the file system read only. Then , to open a file, it traverses the log only while the log entries' snapshot IDs are smaller than or equal to the target snapshot's ID.
+2. Manage Storage for snapshots: Nova-Fortis maintains a snapshot manifest for each snapshot. Entries in the manifest contain a pointer to a log entry, a birth snapshot ID, and a death snapshot ID. This snapshot manifest is used to preserve file contents from previous snapshots while also being able to recover the space a snapshot occupied after its deletion.
+3. Taking unsable snapshots of DAX mmap()'d files: When Nova-Fortis starts marking pages as read-only, it will block page faults on read-only mmap()'d pages from completing until is has marked all the mmap()'d pages as read-only. 
+
+Q& A:
+Q1. How do we evaluate a fault tolerant file system?
+A1. Compare the performance with and without snapshots.
+Q2. What is the overhead for your replication benchmarks?
+A2. Faster than competing file systems except in cases where other files systems provide weaker consistency guarantees and/or data protection. Specifically, in the cases for writes and overwrites. 
+
+DATE & TIME: 31st Oct, 9:20 am
+SESSION TITLE: Session 10 Storage Systems
+TALK TITLE: PebblesDB: Building Key-Value Stores using Fragmented Log-Structured Merge Trees
+SPEAKER: Pandian Raju
+KEY POINTS:
+
+1. PebblesDB introduces a new data structure which is a heavily modified Log-structured Merge Trees (LSM) coined as Fragmented Log-structured Merge Trees (FLSM).
+2. This new data structure is a blend of an LSM with s Skip List.
+3. In order to avoid sstables being re-written mulitple times, FLSM counters this by fragmenting sstables into smaller units. FLSM's compaction simply appends a new sstable fragment to the next level.
+4. FLSM organizes the sstables into guards  to discard the invariant that key ranges cannot overlap. These guards are randomly and dynamically selected, and independent from the distribution of data.
+
+Q& A:
+Q1. What happens when the distribution of data changes? For example, what policy is used to deal with this problem and what is the overhead?
+A1. No policy to rearrange the data.
+Q2. How does deletion work for this new data structure.
+A2. Similar to the insertion.
+Q3. What is the worst case for writes.
+A3. PebblesDb performs better than its competitors in terms of the worst case.
+Q4. Did you evaluate this new database and its competitors once they reached steady state.
+A4. yes

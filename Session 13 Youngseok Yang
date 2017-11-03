@@ -1,0 +1,81 @@
+DATE & TIME: 31st Oct, 2:45 pm
+SESSION TITLE: Session 13: Data analytics
+
+
+[1]
+TALK TITLE: Sub-millisecond Stateful Stream Querying over Fast-evolving Linked Data
+SPEAKER: Yunhao Zhang, Rong Chen, Haibo Chen (Shanghai Jiao Tong University)
+KEY POINTS:
+- Problem: 1) Cross-system cost, 2) inefficient query plan, and 3) limited scalability in running stateful queries over a combination of streaming(high velocity) and stored(large & evolving) data.
+- Solution: Integrated design for managing streaming and stored data in a single system
+- Main technical contributions:
+1. Hybrid store: Separation of timeless data(continuous persistent store) and timed data(time-based transient store) with user-defined predicates
+2. Stream index: Fast access to streaming data (Not presented in the talk due to limited time)
+3. Consistent data view: Decentralized vector timestamps, bounded snapshot scalarization
+
+Q & A:
+  Q1. Have you considered sharing computations across multiple queries?
+  A1. That is one of future works.
+
+  Q2. Can you improve the latency of the existing composite design by adding a caching layer?
+  A2. Cache can cause coherence problems as the data is not static.
+
+  Q3. How do you handle late data?
+  A3. This work does not consider out-of-order processing, but that can be implemented with techniques like watermarks.
+
+
+[2]
+TALK TITLE: Optimizing Big-Data Queries Using Program Synthesis
+SPEAKER: Matthias Schlaipfer (TU Wien); Kaushik Rajan, Akash Lal (Microsoft); Malavika Samak (MIT)
+KEY POINTS:
+- Problem: Rule-driven query optimization have limited applicability, miss optimization opportunities that involve non-SQL operators
+- Solution: Synthesise query specific non-SQL operators on the fly to generate query plans with fewer stages(faster)
+- Main technical contributions: 
+1. Operator Synthesis: SQL specification + Generic template generation/Grammar extraction
+2. Scaling synthesis through query simplification: synthesize incrementally one part at a time and reassemble full operator
+3. Only guarantees partial soundness and needs manual verification, but experience has been very positive
+
+Q & A:
+  Q1. Have you compared your work with DAG optimization techniques like PeriSCOPE?
+  A1. They have different goals. The goal of our work is to generate new operators that enable plans with fewer stages. We believe this has not been done before. Moreover the techniques in PeriSCOPE may had already been applied to our system, but I have to confirm this.
+
+  Q2. Can you leverage underlying indices in the schemas?
+  A2. Yes, we can leverage such information through annotating input data. For example, we took advantage of a unique timestamp field to improve query execution.
+
+  Q3. Are there cases where generated queries perform worse?
+  A3. No, thanks to carefully considering linear time operators that have comparable complexity to the standard SQL operators. However, there are no guarantees.
+
+  Q4. How does your technique compare to compiler optimizations such as loop fusion and scan sharing?
+  A4. Program synthesis can do optimizations that compilers can not do.
+
+ Q5. How hard is it to use this? 
+ A5. The synthesis results are provided in C++ code, which needs manual verification.
+
+
+[3]
+TALK TITLE: Low-Latency Analytics on Colossal Data Streams with SummaryStore
+SPEAKER: Nitin Agrawal, Ashish Vulimiri (Samsung Research)
+KEY POINTS: 
+- Problem: In-memory stores/conventional time-series stores are costly for handling ¡°colossal¡± streaming data
+- Solution: Approximate store for ¡°colossal¡± time-series data (since newer data is more important for many applications)
+- Technical contributions:
+1. Approximation: Keep only the summary of each window and use bigger windows for older data(fewer bits for older data)
+2. Ingest algorithm: When a new value arrives create a new window of length 1 to hold it and merge any consecutive windows contained in the same target window length(bigger for older data)
+3. Answer time-range queries that are not necessarily window-aligned using statistical approximations (details in the paper)
+4. Landmarks: Protect specific values from decay by always storing them at full resolution, seamlessly combined with decayed data when answering queries
+
+Q & A:
+  Q1. Given that the system stores data in a summarized format, how can different queries from different data processing application be supported?
+  A1. This is a general issues with approximate systems. You need to know what queries you want to support ahead of time.
+
+  Q2. Can different decaying policies be applied to different operators?
+  A2. Yes, for example by creating multiple copies of the streams.
+
+  Q3. Can summarizations like medians and percentiles be supported?
+  A3. Yes, although they are harder to approximate. There are specific structures designed for those problems.
+
+  Q4. Any overhead in repeatedly reading and writing data back?
+  A4. Yes, those are related to the compaction operation. We have an analysis of the amortized overhead. The details are in the paper.
+
+  Q5. Why the dip in the ECON workload graph?
+  A5. The ECON workload is relatively more unpredictable. Our system does better with the dip, because we decay older data.

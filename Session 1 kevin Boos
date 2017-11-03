@@ -1,0 +1,86 @@
+Session 1: Bug Finding
+
+======
+Date: Oct 29, 2017 9:00 AM
+DeepXplore: Automated Whitebox Testing of Deep Learning Systems
+Speaker: Kexin Pei
+Best paper award!
+-----
+-- Deep learning has matched human performance, Increasingly deployed in real-world systems, google home, alexa, self-driving cars
+--some are safety critical, e.g., Tesla autopilot failed, resulting in fatal crash
+-- corner cases haven't been well-tested, coverage of test data set is small, requires a costly manual labelling effort
+-- traditional software testings don't work for deep learning, because logic isn't handcoded, it's randomly learned from data, so traditional code coverage metrics don't really apply here.
+-- DeepXplore: applies physically realistic transformations, not just random gibberish. or carefully crafted malicious noise.
+-- Also provides a coverage metric for neurons.  (# neurons activated / # total neurons), hence the "whitebox" term. A neuron is considered "activated" if it meets the activation threshold of a certain number of weighted inputs fed into it.
+-- 50% better coverage, automated cross comparison of multiple DNNs
+-- how it works: takes one unlabelled input and feeds it into multiple different DNNs (that all have the same basic functionality), then maximize the differences in output from each DNN under realistic constraints -- most of the examples entailed applying gradients to pictures being analyzed (?)
+-- [self] but what does it mean to be realistic? how is that determined?
+-- tested on 5 data sets, with average accuracy of 96%. Mostly images, but also a PDF malware detector that they fooled by changing number of authors (lol)
+-- conclusion: systematizes testing for deep learning.
+
+Question 1: (couldn't hear question) asked about testing for invariants that couldn't be captured at the time of initial training? Unclear question.
+Answer: we can augment training data in a new way that exercises a different set of neurons and decision logic.
+
+Question 2: Gina Matthews (?), questions about transparency and accountability in DL decisions; can DeepXplore be used to provide explanations to people about how decisions were made in a DNN?
+Answer: DeepXplore's extra test cases that it generates can help a user infer where the logic of a DNN is wrong is misguided.
+
+Question 3: (univ of chicago) What other realistic transformations were applied to inputs besides adjusting brightness of picture inputs?
+Answer: (off-topic) about how returning the specific sets of neurons activated may be more useful than returning the neuron coverage metric.
+
+Question 4: Mike from Google:  how hard is it to devise realistic transformations in domains beyond image recognition?
+Answer: they also included data from malware-recognizing DNNs, where they added features (like the PDF author count, or size). Basically anything that doesn't affect the base functionality of the input (so don't change the actual content of the PDF.... but isn't author count a type of content?)
+
+=============================================
+Date: Oct 29, 2017 9:30 AM
+Pensieve: Non-Intrusive Failure Reproduction for Distributed Systems using the Event Chaining Approach
+Speaker: Yongle Zhang, University of Toronto
+
+-- Failure reproduction is costly and time consuming, most critical role in debugging. Example: Could Not Reproduce issues, spend 30 days reproducing bug and only 8 minutes fixing it.
+-- Pensieve tool analyzes Java bytecode and logs in JVM systems
+-- Finds series of actions that will reproduce failure, and generates unit test to do so
+-- better than R&R (no intrusive overhead) and more scalable than symbolic execution
+-- Core idea: partial trace observation: devs never debug by reconstruction its complete execution path, but rather just a subset (sounds like program slicing)
+-- Event Chaining: location event --> condition event --> invocation event.
+-- Establishes "happened before" relationships between these events, creating a chain
+-- Eval: 18 cases from DFS, HBase, ZooKeeper, Cassandra. 72% reproduction rate, finishes within 10 mins.
+-- Limitations: can't help if error isn't logged, or for resource exhaustion. Needs clearly defined inputs.
+-- Compared to program slicing, it contains a partial dynamic trace rather than a complete static trace. (Okay, fair enough)
+
+Question 1: (Google Brain) What assumptions do you make about other things going on in the system?
+A: didn't catch it.
+Question 2; Jason Flynn UMich: How difficult is it to trace negative events, e.g., the lack of some variable being set?
+Answer: Because we have a dynamic trace, we can look for other conditions that may manifest when an event has not occurred as expected.
+Question 3 (???):  Can Pensieve work during development or production testing phase?  What happens if log parsing finds an event that could come from multiple parts of the code?
+Answer: this is rare, they use an existing logging library to reduce this because the log library forcibly outputs disambiguating info like file name and line number.
+Question 4 (???): (couldn't hear).
+Answer: something about concurrent dependencies and determining ordering. Sounds like they need something like Pivot Tracing?
+Q: how is overhead not as bad as R&R?
+A: they only have to monitor memory contents when trying to reproduce, not in actual production. Good answer.
+
+
+=======================================================
+Date: Oct 29, 2017 10:00 AM
+Canopy: an end to end performance tracing and analysis system
+Jonathan Kaldor, Facebook
+
+-- Helps diagnose performance problem in facebook, like pageloading perf
+-- need to reconstruct a trace across multiple distributed entities
+-- Need to aggregate multiple traces together to form a big accurate picture
+-- in use for 2 years, 1B trace/day, for browser, mobile apps, services, traces everything. Overhead around 10%.
+-- Data from multiple entities is correlated using a TraceID.
+-- Can write code snippets to extract features from traces, operating over all traces with a given ID. Very convenient.
+-- Can filter based on datasets, features, and origin entity
+-- code snippets are based on a custom DSL, but working on Python
+-- Traces and features are still manually defined by engineers
+
+Question 1: Shan Lu: How do you handle/scale to spikes in traffic that demand more traces?
+A: certain things can be partially captured in real time and then pushed onto a backlog.
+
+Question 2: (???): How do you differentiate between sources of delay that our external to your system?
+A: we can't really, external components have to be treated as black boxes. But any component owned by us is fully traceable.
+
+Question 3: (online) how are trace IDs generated?
+A: They are generated at the starting point, collisions are possible but infrequent (less than 1 per day).
+
+Question 4: (online) Can you use Canopy to find new optimization opportunities?
+A: Internally it's mostly used to find regressions, but it is possible. Writing a feature to analyze the trace for this is harder than finding regressions.

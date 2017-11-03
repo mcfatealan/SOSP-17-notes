@@ -1,0 +1,220 @@
+Session 5: Kernels
+NEVE: Nested Virtualization Extensions for ARM
+Speaker: Jin Tack Lim
+
+Key Points:
+
+* Nested Virtualization: VMs in VMs
+    * Host hypervisor on top of hardware
+    * Guest hypervisor run in VM
+    * Nested VM on top of guest hypervisor
+* Nested VMs useful for public cloud; modern OSes have built-in hypervisors
+  sometimes
+* Nested virtualization with ARM is important for server market
+* Key problems: nested virtualization not supported in current hardware, can't
+  evaluate performance in unavailable furture hardware ARMv8.3 -- no idea what
+  performance will look like - ARMv8.0 is the latest hardware publicly
+  available
+* Key contributions
+    * Introduced paravirtualization for architecture evaluation
+    * Evaluated nested virtualization performance using paravirtualization
+    * Built first ARM hypervisor supporting nested virtualization
+    * Nested virtualization on ARMv8.3 performs poorly
+    * Propose new architecture extension (NEVE) that improves performance up to 10x
+    * ARM included in next gen ARM architecture, ARMv8.4
+* Current approaches to evaluate perf in unavailable hardware designs
+    * Cycle-accurate simulators - costly and slow
+    * Simpler architecture models - provides only correct hardware
+      functionality, not performance
+* Use Paravirtualization for architecture emulation -- emulate in trap handler
+* Implementation
+    * KVM/ARM Nested Virtualization
+    * Similar to Turtle [OSDI 2010]
+* Experimental setup
+    * ARMv8.0 CPU, Paravirtualization approach vs x86 with KVM on KVM
+    * ARMv8.3 Nested VM - almost 10x-40x overhead
+* Why is Nested Virtualization so slow in ARM?
+    * ARM CPUs have 3 modes: EL0 (apps), EL1 (OS), EL2 (Hypervisor)
+    * EL1/EL2 have separate system registers
+    * With nested virtualization: guest hypervisor + OS kernel run in EL1
+        * Traps go through host hypervisor
+        * Single exit from nested VM to guest hypervisor turns into multiple
+          traps into the host hypervisor
+            * "Exit multiplication" problem
+            * Slows down ARM nested VM performance badly
+* NEVE
+    * Supports unmodified guest hypervisors and OSes
+    * Improves perf of nested VMs
+    * Solves exit multiplication problem
+* Split registers into VM registers and hypervisor registers
+* VM registers: NEVE redirects VM register access instructions to memory; on
+  nested VM entry, host hypervisor can get VM register states from memory
+* Hypervisor control registers: handle traps by redirecting to EL1 registers in
+  software
+* NEVE evaluation
+    * Use paravirtualization for architecture evaluation (because no hardware
+      implements NEVE yet)
+    * Memory redirection emulation: register access -> mem load/store
+    * Register redirection emulation: EL2 register access -> EL1 register access
+    * NEVE is up to 10x faster than ARMv8.3 Nested VM, competitive with x86
+      Nested VM
+
+Q & A:
+
+Q: How do you run ARMv8.3 extensions if your hardware is ARMv8.0
+A: 
+
+Q: Why is x86 Nested VM and ARM + NEVE performance similar/
+A: Measured low-level performance, e.g. cost of switching is same, so perf is similar.
+
+Q: Both x86 and NEVE are too slow for real world use, what is needed to make this faster?
+A: Direct device assignment for nested VMs might make perf better.
+
+---
+
+Session 5: Kernels
+My VM is Lighter (and Safer) than your Container
+Speaker: Costin Raiciu
+
+Key Points:
+
+* Isolating workloads is one of main goals in cloud
+    * Traditional approach: VMs
+        * Pro: Very strong isolation
+        * Con: Heavyweight
+    * Shift toward containers
+        * Pro: Lightweight
+        * Con: Iffy isolation
+        * Kernel has to provide syscall API to containers -- and number of
+          syscalls is growing: > 350 today in Linux
+* LightVM: VMs as fast and efficient as containers
+    * Fast instantiation/destruction: 10s of milliseconds
+    * Low memory footprint: 10s MBs or less
+    * High density: 1-10K guests on single host
+* Standard VM: Application on top of libraries on top of services on top of
+  Linux
+    * Insight: software only applies to small part of underlying
+      libs/services/OS
+* Unikernel: single app + minimalistic OS
+    * Include only what you need, run in single address space
+    * Lightweight
+* Tinyx: small linux distro for target app
+    * Find dependencies, use OverlayFS to install deps on top of initial file
+      system, then remove stuff you don't need, remove drivers you don't need
+    * Kernel: 1.5MB (from 8MB)
+    * Image size: 10-30MB (compared to 1GB)
+    * Boot time: fast
+* Docker creation time is 10x process creation time, VM boot time is 10-1000x
+  of Docker creation time
+* Xen
+    * Why slow; XenStore and device creation
+    * XenStore: backend and frontend communicate through XenStore -- point of
+      contention
+* LightVM architecture
+    * based on Xen
+    * toolstack optimized for paravirtualized guests
+    * split functionality
+        * many things you do in creation of VM are common (memory allocation,
+          ...) -- split that into VM creation calls to make an empty shell
+        * do VM-specific run-time phase (configuration, ...)
+    * no XenStore
+        * use shared memory to store data and communicate, synchronize using
+          event channels
+* 50x faster than Xen for VM creation
+* Summary
+    * Virtual machines can provide strong isolation and be lightweight
+    * Achieved through lightweight guests and re-architected toolstack
+
+Q & A:
+
+Q: Would these techniques apply to containers?
+A: Yes - if you reengineer docker, there's no fundamental reason you can't get these low boot times.
+
+Q: How much effort is it to create a Unikernel?
+A: Manual effort: 1 person-month for TLS termination proxy.
+
+Q: What if you run a multi-process application?
+A:
+
+---
+
+Session 5: Kernels
+Multiprogramming a 64 kB Computer Safely and Efficiently
+Speaker: Amit Levy
+
+Key Points:
+
+* Microcontrollers becoming platforms, running multiple apps
+* Embedded software isn't ready
+    * All code in single address space
+    * Trust all code
+    * Monolithic image
+    * All or nothing recovery
+* Need fault isolation for apps and OS services in microcontrollers
+    * Can't use traditional isolation techniques with limitations like 64 kB of
+      RAM, no virtual memory
+    * Moore's Law won't fix the problem -- sleep current is limiting factor,
+      memory capacity has grown < 10x in 15 years
+* New isolation tools
+    * MPU: protection bits for 8 memory regions
+    * Rust: non GC type safe systems language
+* Design goals
+    * Isolate drivers - use Rust's type system
+    * Isolate applications - process isolation using MPU, must reclaim
+      immediately upon termination
+    * Support concurrency and IO - need memory abstractions in lieu of heap
+* Tock: A Microcontroller OS
+    * Written in Rust
+    * Type-safe API for safe driver development
+    * Process abstraction with Memory Protection Unit
+* Why Rust?
+    * Type and memory safe
+    * Compile-time types, no runtime overhead
+    * No GC
+    * Runtime behavior similar to C
+* Tock's isolation mechanisms
+    * Capsules: rust code linked into kernel
+        * Trusted for liveness but not for safety
+        * Isolation enforced at compile time
+        * Low overhead
+        * Used for device drivers, protocols, timers
+        * Implementation
+            * Rust module and structs
+            * Event-driven execution with async IO
+            * Shared stack, no heap
+            * Communicate with methods and references
+    * Processes: standalone executable in any language
+        * Totally untrusted
+        * Isolation enforced at runtime
+        * Used for applications
+        * Implementation
+            * Hardware-isolated concurrent execution of programs
+            * MPU to protect regions without virtualization
+            * Independent stack, heap, static vars
+            * Updated dynamically with position independent code
+            * Scheduled preemptively
+            * Communicate using system calls and IPC
+* Evaluation
+    * Code and memory footprint comparable to TinyOS and FreeRTOS
+    * Deployed in a real system - SignPost at UC Berkeley
+* Summary
+    * Tock: Multiprogramming with 64 kB
+    * Cheap kernel isolation with type-safe driver API in Rust
+    * Process abstraction without page virtualization
+    * Efficient concurrency without a kernel heap
+
+Q & A:
+
+Q: How does overhead of Rust compare to C for implementing a Kernel?
+A: Haven't done very extensive benchmarks of Rust in general with C in general.
+In our experience, we found that even high-level constructs in Rust compile to
+assembly code that we'd expect in C.
+
+Q: How much of the code is not written in Rust?
+A: Two components to that: Kernel has hardware abstraction layer written in
+Rust, but uses "unsafe" extensions. Process scheduler is written in assembly.
+
+Q: Would there be performance benefits by writing applications in Rust?
+A: Yes. Major source of overhead is setting memory protection hardware,
+nontrivial work compared to setting stack pointer. Could use Rust compile-time
+safety instead.

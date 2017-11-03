@@ -1,0 +1,58 @@
+Strata
+Q1: Is it true that you have to search all layers? How do you know where the block is when you migrate between devices?
+
+We have a in-memory mapping.
+
+Q2: In order to make data visible, you would need to wait for the digest. What if the application wants to shre the data? Is there some operation that you can force digest?
+
+As I mentioned, we used a lease. Application take the lease to operate on directories and file. By sharing the lease, other application can see the operations.
+
+Q3: You didn't mantion about NVM life time? Can you talk about it? For example NVM has the burn-out property.
+
+That's true. For Strata, we use a log and we have to write twice to the device. However, we have a log coalescing optimization to reduce this effects.
+
+NOVA fortis
+
+Q1: How can you validate if your file system is actually crash safe? How do you test that? Do you have any experiments?
+
+Currently we use DRAM to simulate NVM, and testing against crash safe is very difficult. We can probably use userspace tools (like fsck?) to test that.
+
+Q2: You are using copy on write to protect the pages for snapshotting. Why you don't do the same thing for data protection? Is it too slow?
+
+Application might modify the pages frequently, it's unwise to do the data protection for performance reasons.
+
+Q3: What's the space overhead of replication?
+
+Around 30%.
+
+PebbleDB
+
+Q1: How frequent is the compaction? Does the number of layers affect the compaction? How does that affects the throughput and the write amplification?
+
+Depends on the workload. If it's a write-heavy workload, you can still tune when to compaction.
+
+Q2: When the skew shifts, is there any rearrangement?
+
+Currently there is no way to shift the data. Skew is a matter of probability. We can put the a mechanism of shifting the guards to balance the skew.
+
+Q3: How does deletion work?
+
+Similar to insertion, insert a null value. Similar to a write operation.
+
+Q4: What's the tail latency when inserting into the database? What's the worse case performance?
+
+Depending on the workload. If it's a sequential writes, then LSM tree needs to batch things.
+
+In terms of worst case performance, it should be always better than other K-V stores.
+
+Q5: How does Pebble deal with duplication keys at the same level?
+
+We have epxeriment with only 10% of the keys are unique keys. PebbleDB has around 2-5% overhead compare to other K-V stores.
+
+Q6: There's a traid work from ATC17 to reduce the write amplication by dividing hot and cold data. How do you compare your work to theirs?
+
+It's orthogonal. We can apply their technique to our system too.
+
+Q7: The challenge of log structured system is the throughputs all looks good when you first start the benchmark, but as background GC and compaction kicks in, your throughput eventually stablized. Is your comparison have all your systems reached the steady state? Different system might require different number of operations to get to that point.
+
+We inserted 50GB of data before our measurement and we made sure all baseline systems have reached steady state.

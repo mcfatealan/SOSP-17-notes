@@ -1,0 +1,114 @@
+DATE & TIME: 29th Oct, 3:15 pm. 
+
+Session title: session 4 Resource Management
+Talk title: Resource Central: Understanding and Predicting Workloads for improved resource management in Large cloud platforms
+Speaker: Eli Cortez
+Key points:
+1. Public Cloud Goal -> offer better service with less money
+2. Achieved through resource management - but practical challenges exist
+3. machine learning can help in resource management
+4. contributions: 1) characterization of VM workload, 2) learning and predicting characteristics
+5. Azure have different kinds of VM services
+6. 
+characterization 1: distribution of VM Size & observations: VMs are small. 
+characterization 2: VM CPU: 
+characterization 3: VM lifetime: 1) short VMs dominate (90% live 1 day), 2) long tail - 5% VMs live forever, 3) long lived VMs consume most the resource. 
+Implication: predict the life time of a VM will help resource management!
+7. Resource Central: not resource manager, but provides information for better resource management. 
+8. Design
+1) offline phase - collect data + learn + verification
+2) online phase - prediction
+9. Metrics used to learn: 1) CPU, 2) size, 3) lifetime, 4) workload
+10. Evaluation
+11. Performance: low latency
+12. Conclusion: 1) understand the cloud workload, 2) resource central and help predict with high accuracy
+
+Q & A:
+Q1: What's the training set? How many records are there? 
+A1: Not able to share. 
+Q2: How to measure VM efficiency? Have you done that? 
+A2: Take this offline. 
+Q3: Interference between workloads, would that influence your prediction? 
+A3: Didn't notice in our evaluation. 
+Q4: What happens when things don't go well (mis-predictions)? 
+A4: Resource manager decides what do in mis-predictions. 
+
+Session title: session 4 Resource Management
+Talk title: MittOS: Supporting Millisecond Tail Tolerance with Fast Rejecting SLO-Aware OS Interface
+Speaker: Mingzhe Hao
+Key points:
+1. Millisenconds matters! 
+2. 
+Speculation, detecte straggler, run backup. 
+Cloning:  resource waste.
+3. No wait for speculation. Possible! Fast reject! 
+4. Tell what's your SLO, OS know everything! Can do fast reject!
+5. Challenge, how do OS do fast reject? 
+depending on 1) queue policy + 2) device type. 
+6. Easy to add to existing system. 
+7. How to predict latency before submitting to the device? 
+how many IOs in front of current request? 
+how long does it take? 
+8. FIFO is easy to predict, other can be different
+9. device type also matters: disk is different from SSD.
+10. Idiosyncrasies of devices: OS and device use different queue and priority.
+11. f(SLO, queue policy, device type)
+device -> profiling or white box
+12. Profiling: random seek, read, then collect latency. 
+13. When profiling is not enough: SSD. 
+SSD: software defined flash -> OS can know what's going on in SSD and the queues in SSD. 
+14. Other solved challenges.
+1) Avoid overhead
+2) Prediction for OS cache. 
+15. Evaluation
+16. Conclusion: reject fast! 
+
+
+Q & A:
+Q1: IO scheduling - insert new request: recalculate or every one else? 
+A1: Yes we do. We have a cache for fast recalculation. 
+Q2: Only IO is considered? CPU, network why not considered? 
+A2: We did some work for CPU, we'll take it offline. Network is hard -> you need to have a global view of all the devices in the network. 
+Q3: How do you decide SLO?
+A3: Simple -> pick P95. 
+Q4: IO/S drop: if the queue is so long, there will be a lot of rejected requests because of your fast reject. 
+A4: Over rejection is rare because 2 machines rejecting the same request is really low probability. 
+
+Session title: session 4 Resource Management
+Talk title: Monotasks: Architecting for Performance Clarity in Data Analytics Frameworks
+Speaker: Kay Ousterhout
+Key points:
+1. Options to make task faster:
+1) different cloud instance type? 
+2) trade more CPU for less IO by using compression algo? 
+2. But which option to take??? Hard to choose. 
+3. Goal: Tell user if I change something, what would happen? 
+4. Focus on Data analytics systems. 
+5. Key idea: use single-resource monotasks
+6. Spark Word Count example -> Map and split data, reduce and calculate result. 
+7. How to reason about performance in this example? 
+Resource are used differently, hard to reason about. 
+8. Contention makes it harder. Resource is controlled by OS. 
+9. Hard to find what's the bottleneck. 
+At different time, tasks may be bottleneck on different resource. 
+10. Key: Just use one resource. 
+11. Challenges solved:
+1) Original task is broken into several: Each task uses one resource. 
+2) Each resource schedules monotask using this resource. 
+3) Always flush to disk to avoid uncontroled buffer in OS. 
+12. It's just simple to ask what if question and figure out what option can improve the performance. 
+13. How decompose original task into monotasks? 
+Data analytic jobs like word count can be automatically translated into monotasks. 
+14. Evaluation: provide performance clarity without sacrificing performance. 
+15. Should monotask be provided by the OS?
+
+Key idea: makes sure there's no complicated dependency that stop it from being scheduled inside each task. Move the dependency out! 
+
+Q & A:
+Q1: How do faults affect the model? 
+A1: ()
+Q2: How do you carry the information from monotask to another? 
+A2: Not a problem in the current evaluation.  
+Q3: Monotasks is serializing tasks? what's the influence? 
+A3: More evaluation in the paper. 
+

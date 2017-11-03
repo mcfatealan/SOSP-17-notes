@@ -1,0 +1,109 @@
+DATE & TIME: 29th October, 1:30pm
+SESSION TITLE: In-Network Computing
+TALK TITLE: NetCache: Balancing Key-Value Stores with Fast In-Network Caching
+SPEAKER: Xiaozhou Li
+
+KEY POINTS
+
+NetCache is a rack-scale KV store hat leverages in-network dataplane caching to achieve biliions of QPS at low latency, even in the face of skew. It is designed for a large number of read-intensive, small objects -- a workload in which skew and imbalances typically lead to low throughput and high tail latencies.
+
+Caches typically work by providing a smaller, faster layer, which has higher throughput than the backend storage. In case of flash and disk tiers, main memory can act as a cache. What can act as a cache for in-memory storage, which needs to serve requests at billions of queries per second?
+
+Insight: Put the caching layer within a switch. Silicon is already capable of handling line rate, switching descisions, which are billions of operations per second, and have a small memory (O(few MB)). Netcache provides a small in-network cache to absorb the hottest reads from an in-memory storage backend. The size of cache is O(NlogN) hottest items, which is sufficient in most cases to absort excess load and handle skew.
+
+There are a number of challenges in putting such workloads onto the switch: how to detect where in the packet application headers are, how to deal with variable-sized requests, and how to handle the lifetime of cached objects. 
+
+Fixed function network ASICs have trouble detecting custom application headers. In contrast, programmable switches provide a method for developers to write a hardware-independent parser and specify custom match rules, such as matching arbitrary fields in the packet header, to trigger actions. In NetCache, the fields are added after the L4 layer (TCP/UDP). Only a single ToR switch needs to be able to run NetCache, and act as a cache for the entire rack.
+
+The NetCache architecture does a typical split between data and control planes for processing: the data plane is responsible for both looking up cached keys and collecting statistics for cache management, while the control plane allows insertion and eviction of items for the cache, and managing switch memory for cache space.
+
+NetCache serves reads that hit in the cache directly from the switch, while read misses are forwarded to servers, with appopriate hotness statistics reported to the control plane. For coherence, writes are write-through and invalidate the cache. All requests are then forwarded to the server, which blocks any subsequent writes until the cache is updated and in-sync with the backend value.
+
+How does NetCache handle variable-sized keys? The challenge is to do this without adding any loops to the match-action pipeline, since it has strict timing requirements and resource consumption limits. NetCache uses a layer of indirection, where the match-action table stores a bitmap array, indicating which arrays contain the value for a key, and and index indicating where in the array the value is stored.
+
+How does one efficiently keep the cache up to date? Caches have limited insertion rate, so the challenge is to react quickly and provide accurate caching, with minimal churn. The data plane reports hotness statistics for keys to the controller which makes decisions around objects to insert and evict from the cache. In NetCache, hotness is tracked using per-key arrays. Accesses to uncached keys are tracked using a combination of sketch counters and bloom filters to detect duplicate accesses.
+
+NetCache is implemented as a P4 program. It caches 64K items, with 16-byte keys and 128-byte values. It is protoyped on a single Barefoot Tofino programmable switch. It is tested with highly skewed and not so highly skewed workloads, both with random access patterns and a pathological "Hot-in" case which requires a large amount of churn. NetCache provides significantly higher throughput than the non-cached case. The hot-in workload show significant drops in throughput over 1s intervals, due to churn, but are stabilized over 10s intervals. The random workload shows much less variance, even over 1s intervals.
+
+Programmable switches are an exciting development: they allow cross-layer co-design of compute, storage, and networking, which is required for performance in next-generation datacenter architectures.
+
+Q&A
+
+1. There is a wide gap between memory available in the switch and the server. How does this affect design decisions for on-switch caches?
+There is no expectation that one would do everything on the switch. This is not meant to be a general purpose cache, but a line-rate, high-performance, small cache for dynamic load balancing purposes and skew mitigation for in-memory storage.
+
+
+
+DATE & TIME: 29th October, 1:30pm
+SESSION TITLE: In-Network Computing
+TALK TITLE: KV-Direct: High-Performance In-Memory Key-Value Store with Programmable NIC
+SPEAKER: Bojie Lie
+
+KEY POINTS
+
+KV-Direct is a KV store using programmable NICS, i.e., NICs with attached-FPGAs.
+
+Traditionally, KV stores have been used as caches fronting data stores. More recently, however, they have been used as the basis for building shared data structures; for example, storing the list of edges in a graph, or parameters in a parameter server. The focus of this work is to accelerate KV stores that are used for shared data structures. These have slightly different requirements than when fronting data stores: they need to support both reads and writes at high speed, as well as requiring atomic updates.
+
+Kernel networking stacks are a huge performance bottleneck. Over the last few years, we've seen KV stores that use userspace networking libraries, such as DPDK and netmap, to raise per-core QPS from ~300K to 5M. Higher throughput KV stores use one-sided RDMA, but this comes with its own set of troubles -- updates to shared data structures take multiple round trips and are hard to transactionalize.
+
+KV Direct proposes to offload KV processing to SmartNICs. It extends RDMA to support KV primitives (GET/PUT) and atomic operations. SmartNICs are standard NICs, with attached on-board DRAM and an FGPA. The FPGA accesses host DRAM using DMA over the PCIe bus. PCIe bandwidth is limited and the latency of relatively high (O(us)), so KV-Direct does significant work in trying to optimize this transfer and hide the latency. KV Direct uses a custom hash table using bucket chaining to reduce number of PCIe requests. On an average, GETs result in a single PCIe DMA, while PUTs result in two of them.
+
+Dependent writes cause a blowout of latency as RTTs get stacked serially. KV Direct uses an out of order execution engine which tracks dependencies across accesses. Independent accesses are issued in parallel to hide PCIe latency, but dependent accesses are gated at the NIC and serialized to preserve consistency.
+
+Why all this effort to hide PCIe latency instead of just using the DRAM on-board the NIC as a cache? On the current prototype, this DRAM is slower than host DRAM and cannot purely be used as a cache. Instead, KV Direct load balances operations between the two different sets of DRAM to try and maximize effective memory bandwidth.
+
+As an optimization, KV Direct also exposes vector atomic operations. This allows clients to transfer the entire request in a single packet and amortize header overheads.
+
+KV-Direct is evaluated using YCSB with a uniform workload and and high skew one for a long tail workload. Depending on KV size, KV Direct ends up bottlenecked on a different resource. At very small sizes, it is clock-limited, while achieving network saturation at > 60B sizes. Throughput is on par with state of the art servers with dozens of cores. Also, as PCIe bandwidth is relatively low, CPU is mostly idle and can be used for other tasks. Thia also means that multiple SmartNICs can be put in a single chassis and KV Direct scales almost linearly. The final comparison is with other KV stores, in terms of power efficiency, measured as KOPS/Watt. Achieves best in class performance for both GETs and PUTs.
+
+Q&A
+
+1. Can we go better with more application-hardware co-design?
+Goal is not to design a bespoke high-speed KV store, but to enable high throughput for existing stores.
+
+2. Why is overall throughput so low?
+It is NIC limited, and this is older work using 10Gbps NICs.
+
+3. The system is heavily engineered to a particular piece of hardware. How much would overall architecture change with small changes in hardware?
+The design principles, such as being frugal with memory accesses, is fundamental as it depends on PCIe latency. Things like the fact that you need to leverage both on-board and host memory is more specific to the system, but there is reason to believe it generalizes too. Not fair to think of it as a hardware-specific optimization.
+
+4. Given that the host is not very useful, why not build an FPGA-based KV store?
+The DRAM connected to the FPGAs on the NIC is not high performance or capacity, and trying to ramp it up leads to more expensive on-die designs.
+
+
+
+DATE & TIME: 29th October, 1:30pm
+SESSION TITLE: In-Network Computing
+TALK TITLE: Eris: Coordination-Free Consistent Transactions Using In-Network Concurrency Control
+SPEAKER: Jialin Li
+
+KEY POINTS
+
+Transaction processing is challenging in distributed storage systems as it requires careful co-ordination across a number of shards and replicas. This has lead to a tension between consistency and performance: offering strong consistency guarantees with strict serializability is beneficial for the programmer, but hard to achieve while still providing the tight latency bounds desired by applications.
+
+Eris is designed specifically with the properties of fast, mostly reliable datacenter networks in mind, and provides high throughput and low latency, along a linearizable order of execution for independent transactions. It relies on ordering within the datacenter network and builds a consistent transactional model on top of it. It does this by establishing a globally consistent ordering across messages delivered to multiple shards. It does not rely on the network providing guarantees on message delivery. Eris needs to detect missing messages, however, as a replica cannot guarantee the serializability of transactions if it does not know that it has missed messages.
+
+To provide a consistent ordering of messages, Eris introduces a new primitive called Multi-sequenced groupcast. It is an extension of multicast, except that the group is specified by the clients. Eris uses a sequences to atomically assign an ID for messages, which is written into the message header. The sequences keeps a monotonically increasing counter for each group; gaps in this counter for received messages are used to detect dropped messages. Groupcast routing and rewriting message headers with sequence numbers is achieved using OpenFlow and programmable switches/P4. Sequencers can fail, and failures are handled by having a global epoch number. Eris detects sequencer changes when it detects a higher than previously seen epoch in messages.
+
+Eris supports two types of transactions: independent transactions, which are like one-shot, stored procedures, and fully general transactions. Independent transactions have no cross-key dependencies, and can be executed on each shard without any co-ordination. As an example, increment the salary for everyone who currently has a salary below a certain threshold. Surprisingly, many more complicated transactions can be decomposed into a set of independent transactions -- for example, all of TPC-C can be expressed with independent transactions.
+
+Clients issue transactions to sequencer, which forwards the message to all shards and replicas using groupcast. These are logged at a learner on each shard and ACKed to the client without any inter-replica co-ordination. Dropped messages are handled using a centralized failure co-ordinator. When a shard detects it has missed a message, it attempts to retrieve it from other shards. If none of them have a copy, the failure co-ordinator replaces the transaction with a NOP.
+
+Eris is evaluated on a 3-level fat-tree, with 15 shards, and 3 replicas per shard. It is compared against Granola, TAPIR, Lock-Store, and a non-transactional, unreplicated system (which is used to establish as an idealized baseline). When evaluated using YCSB, Eris outperforms everything by 3x, and achieves throughout and latency within 10% of the idealized baseline for independent transactions. For general transactions, while overall performance is lower, Eris is still within ~10% of ideal. As Eris relies on the network for ordering, packet drops can impact peformance. It performs well up until around 5% packet drop, then has a sharp elbow. This is probably not a problem, because 5% packet loss would be a terrible datacenter network.
+
+Eris is an in-network concurrency control mechanism that establishes consistent order of transactions across shards, and en efficient protocol that ensures reliable delivery of independent transactions. It provides strongly consistent, fault-tolerant trasnactions with little performance overhead.
+
+Q&A
+
+1. How do you scale out given the sequencer bottleneck?
+Sequencers can be built at high throughput, as demonstrated by other people. Can use DPDK and other kernel bypass libraries if required to reduce latency and increase operations/second.
+
+2. Are there multiple sequencers in the system?
+At any given time, we have a single sequencer for the entire system, which has monotonically increasing epoch numbers to allow failover.
+
+3. How are the drops detected for last message in an exchange? Does it wait for the next transaction?
+Yes
+
+4. How do you restart the sequencer?  
+Rely on the monotonically increasing sequence numbers to detect when a new sequencer comes online.

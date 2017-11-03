@@ -1,0 +1,315 @@
+Session title: Potpourri
+Talk title: LITE Kernel RDMA Support for Datacenter Applications
+Speaker: Shin-Yeh Tsai
+
+# LITE
+
+history of network stack
+    - hardware has been changing in many directions
+    - rdma bypasses the kernel
+
+rdma: remote direct memory access
+    - directly read remote memory
+    - bypass kernel
+    - memory zero copy
+
+    - low latency high throughput
+
+hardware is expensive, but programmers are cheap
+
+idea: move rdma to datacenters to improve the perfomance
+
+can we do it directly?
+    datacenters have the following
+        - commodity and cheaper hardware
+        - many apps
+        - resource sharing and isolation
+
+what issues rdma causes to datacenter
+    - rdma bypasses kernel
+        - exposes hardwarew like abstraction to applications
+
+    low-level abstractions -> hard to use, diffcult to share
+    high-livel abstractions -> easy to use, resource share, isolation
+
+    hardware abstraction is low level and therefore hard to use
+        * developers want easy to use abstractions
+
+    it's okay for hpc,
+        - few applications
+        - cheaper developers
+
+what will happen if we push things to hardware?
+    - rdma needs to store many things in sram
+    - store secret key for every consecutive memory region
+    perfomance drops very quickly, because rdma needs to cache page table entries and nic can't support it
+
+    expensive, unscalable hardware
+
+    again, ok for hpc
+        - special hardware
+
+    not okay for datacenters
+        - cheap hardware
+
+## Design
+
+what it would like without a kernel?
+    - don't have high level abstraction
+    - no isolation
+    - dark times...
+
+let's bring LITE back!
+solve this issue by adding a new level on indirection on the kernel
+
+move the low level details to lite layer
+move permission checking and address mapping to lite ( allows cheaper hw and scalable performance)
+
+example: remote memset
+    - native rdma has a complex implementation
+    - can do it using lite with only 3 lines of code
+    - power of indirection!
+
+challenge: levels of indirection lead to perfomance lost
+
+solution:
+    1. indirection only at local node for one-sided rdma
+        - local node inderection is enough
+
+    2. avoid hardware indirection
+        - no redudant indirection
+
+    3. hide kernel cost
+        - hide this cost behind the critical path
+
+# Architecture
+
+    - lite apis
+    - one-side rdma
+    - lite rpc
+
+    one-side rdmas
+        only onload costly operations to the kernek
+            - permission checking
+            - address mapping
+
+        avoid costly hw indirection
+            - challenge: how to change hardware functionality without changing hardware?
+
+            use physical addresses -> no need for any ptes
+            register whole memory at once -> one glboal key
+
+        kernel can now manage memory for rdma
+
+apllication effort:
+    + simple to use
+    + flexible to use
+    + easy to achieve good perfomance
+
+
+eval:
+    - map reduce
+        outperforms hadoop 4~5x
+
+    - power graph
+        outperforms power graph 3~6x
+
+conclusion:
+    flexible abstraction
+    performance benefits from rdma
+    indirection not always degrade performance
+        - only redudant indirections are bad
+
+
+
+Q&A
+
+q: comments on r-socket compared to lite?
+a: r-scoket is a wrapper around rdma, needs to modify user code, doesn't provide the flexibility that lite provides
+
+q: does lite support vm migration?
+a: with more flexible of indirection, we should be able to support it
+
+q: what about security issues? there's only one key to the entire key
+a: we trust lite and the kernel, don't trust any users of lite.
+if the kernel is not safe. it's a tradeoff, expose security to improve perfomance.
+
+
+Session title: Potpourri
+Talk title: ZygOS: Achieving Low Tail Latency for Microsecond-scale Networked Tasks
+Speaker: Marios Kogias
+
+# Zygos
+
+problem: serve microsecond scale rpcs
+apps: key-value stores, in memory databases
+
+datacenter enviroment
+    - complex fan-in fan-out pattern
+    - tails at scale problem
+
+goal: improve performance while respecting agressive SLO
+
+## queueing theory
+    module system as a collection of processes and queues
+    model is useful to upper bound perfomance
+
+    system                  | linux | linux | dataplanes
+    connection delegation   | part. | float.| part.
+    work conservation       |   no  |   yes | no
+    queueing                | multi | single| multi
+
+question: can we build a system with low overhead but with work conservation?
+
+key observation: single queue are ~theoretically~ better
+but data planes proves that multi queue, perform ~practically~ better
+
+what we want: convergence to single queue model + low overhead of dataplanes
+
+# analysis:
+
+simulations, and real system benchmarks
+
+- which system perform better with regards to throughput>
+- whihch systems converges faster to each model?
+
+latency v. load
+    - 99th percentile latency, slow 10xavg service time
+
+    - simulations: single vs. multi queue
+        - single queue performs better
+
+    - real systems: dataplane vs. linux
+        - results are dependent of service times
+            with higher service times, results were different
+
+        dataplanes perform better in cases of short low service times
+
+
+## approach
+
+    dataplane aspect with single queue system
+
+    from dataplanes:
+        - reduce system overheads
+        - share nothing network
+
+    from single queue:
+        - work conservation
+        - reduction of headline blocking
+
+    design:
+        - zygos uses dataplane layers, but adds a shuffle layer
+        - shuffle layer allows work stealing
+        - home core receives packets, runs through tcp processor, puts packets in shuffle queue
+        - if remote core has nothing to do, asks from packets from home core, gets and processes them.
+        then, sends response back to home core
+
+        - deals with load inbalance
+
+
+    issue: head of line blocking
+        - home core is busy in userspace, pending tasks, idle remote cores
+    solution: detect inter processor interrupts
+
+## eval
+
+    - micro benchmark
+        zygoss out performs IX
+        as service time increases, zygos shows better perfomance
+        interrupts are the main reason for zygos better perfomance
+        closer to theoretical single queue model
+
+    - tpc-c benchmark: silos
+        zygos outperforms linux for throughput 1.6x speed up and better tail latency when compared to ix
+
+
+Q&A
+q: does work stealing affect the cacheline?
+zygos makes no asusmption about the application, we try to get the best perfomance,
+regardless of how cachelines are used.
+
+q: ordering of requests within the same connection?
+a: hard problem to not violate the ordering of tcp
+    the aplication processing will not happen at the same time in two cores.
+
+q: IPIs are tend to be costly, how will it behave in a socket or multiple sockets having more than 24 cores
+we didn't try to experiment with multiple sockets schemes.
+
+
+
+
+
+
+Session title: Potpourri
+Talk title: ffwd: delegation is (much) faster than you think
+Speaker: Jacok Eriksson
+
+# ffwd
+example: increase sequence number
+    - more than one thread, need to add syncronication (locks)
+    - syncronization greatly affects perfomance
+
+
+why is so slow?
+    - cachelines
+    - inner core and intra core latency
+    - a bunch of time waiting for lock than executing critical section
+    - gets worse if more threads
+
+
+idea: delegation
+    dedicated server in charge of a data structure
+    other threads are clients that ask the dedicated core to execute critical section
+    clients wait for response
+
+ffwd: fast fly weight delegation
+
+clients have their own dedicated cacheline
+write to cacheline, wait until server responds
+serve processes requests, does the work
+stores in the local buffer and sends the response back to clients
+processes requests in batches
+
+requests format:
+    - toggle bit: used to check if a request is new.
+      if request toggle bit != response toggle bit, request is new
+    - request contains arguments and function pointer
+    - response contains return value
+
+local reposnse buffer -> global repsonse buffer
+
+## eval:
+
+same benchmarks as rcl
+    - apps spend a lot of time in the criitcal sections
+    - ffwd doesn't go faster, but at least doesn't degrade like other solutions
+    - other methods perform best when they have few threads
+
+big take aways from evaluation
+    - ffwd is uch faster on largely sequential data structures
+    - for high concurrent data structures ffwd fails behind when lock contention is low
+    - for concurrent data structures with long query time, ffwd keeps up, but not a clear leader
+
+what makes ffwd so fast?
+    + no contention for requests, contiguous in memory
+
+why is not super fast?
+    link bandwidth and latency suggests -> 300mops
+    55mops instead of 300 mops
+    - maybe not enough concurrency?
+
+
+questions:
+q: what do you think is the main innovation?
+a:  there's not much in terms of concepts, the main message is that is a lot faster,
+if you do it right it can be an alternative to locking
+
+q: how is it different form remote core locking?
+a: main focus was to support backwards compatibility. transform something that uses locking
+to use remote core locking. they don't get raw numbers as good as ours
+somethign something they acquire locks
+
+
+
+

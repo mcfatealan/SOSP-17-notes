@@ -1,0 +1,83 @@
+Session 8: Adaptation and repair, Chair: Robbert van Renesse 
+DATE & TIME: 30th Oct, 2:45 pm
+
+
+TALK TITLE:  Automatically Repairing Network Control Planes Using an Abstract Representation
+SPEAKER: Aaron Gember-Jacobson (Colgate University) 
+
+KEY POINTS:
+¥		Control planes today are distributed and configuring (protocol instances, link weights or traffic filters) can be complex to manage. 
+¥	Fixing router issues can take order of several hours.
+¥	Addressing configuration errors today is done using 2 techniques : 
+1.	Network synthesis tools : Which take policies as input and output the correct configuration. However it needs to repeat every time the policy changes.
+2.	Second is verification, which takes both policy and configuration as input and outputs violations if any. The issue here is that it requires manual intervention to perform Control Plane Repair(CPR) . The scope of this paper is to automate this process : take broken configuration + policy and output replied configuration.
+¥	The key ideas used in this work are as follows.
+¥	Build a graph based model from the broken configuration, for every pair of source and destination in the network.
+¥	Use constraint solving to satisfy all the rules. For feasibility, they use hierarchical ARC and to check if the solution presented is the minimal repair, it is solved as max satisfiability problem, with several soft constraints. The aim is to satisfy as many soft constraints as possible.
+¥	They show through evaluations that 72% network is repaired in < 8 hours. As an optimization, they break down the procedure based on destination and repair in parallel. This brings about 2 orders of magnitude reduction in time - 86% repaired in < 1 minute.
+¥	As future optimization, they are considering the few cases where human operator condenses code for repeating filters which makes manual methods result in a smaller repair set.
+
+
+Q & A:
+Q1. Number of nodes/edges in the graph?
+A1. Proportional to the number of routers and routing protocols. Nodes = 2*# of routers and edges = # of physical links.
+
+Q2: Is time taken proportional to the edges?
+A2: Yes, there is exponential increase in time taken beyond a certain number of routers. Working on it.
+
+Q3: Is the synthesized code readable?
+A3: Minimizing number of lines of code does make readability a bit difficult. But in general, readable.
+
+TALK TITLE:  Drizzle: Fast and Adaptable Stream Processing at Scale
+SPEAKER: Kay Ousterhout (UC Berkeley)
+
+KEY POINTS:
+¥	Streaming trends today move towards achieving low latency, while requirement is high throughput.
+¥	Existing execution models can be of two types :
+1.	Continuous operator: Uses 1 DAG. Has low latency, is static and inflexible. But after a failure, recovery latency is high because to maintain exactly once semantics, all machines must be replay operations from checkpoint.
+2.	Micro batching : Uses multiple DAG, each processing a small batch of input. Task boundary captures task iteration. So failure recovery latency is low as replays are parallel. However general operation latency is high because the granularity of both scheduling and processing is fine grained.
+¥	Drizzle aims to get the best of both worlds by decoupling the scheduling granularity from processing granularity i.e make scheduling coarse.
+¥	The key idea used is to reuse scheduling decisions between micro batches, which helps reduce frequent scheduler interactions. This is done using two techniques : 
+-	Pre-scheduling : Map tasks get metadata and provide information to the reduce tasks as to where to fetch data from.
+-	Group scheduling : Schedule a group of micro batches at onceManage fault tolerance at group granularity. They also have techniques to auto determine group sizes.
+¥	For evaluation, they compare Flink(continuous operator) and Spark(Micro batching) with Drizzle.  They show Drizzle can achieve the low latencies comparable to Flink using normal portion cycles. As with adaptability and Fault tolerance, they show drizzle achieves lower recovery latency than even Spark.
+
+Q1: What about adaptability in data skew?
+A1: Their approach is to start from micro batching and move towards continuous operator characteristics. We could go the other way as well.
+
+Q2: Is it suitable for real time applications?
+A2: Yes. The latencies are low enough for real time systems.
+
+
+
+
+
+
+
+
+
+
+
+
+
+TALK TITLE:  Rocksteady: Fast Migration for Low-latency In-memory Storage
+SPEAKER: Chinmay Kulkarni (University of Utah)
+
+KEY POINTS:
+¥	Data migration is necessary in distributed low latency in memory key value stores.
+¥	So the main requirement in this regard is fast data migration with low impact.
+¥	It is necessary to migrate because improved spacial locality increases throughput as the client can access data from a minimal subset of servers as opposed to contacting several of them when data is widely distributed with low locality.
+¥	The goals for migration are : Low access latency and fast data migration.
+¥	The solution Rocksteady falls in this space to achieve the above goals.
+¥	The problems posed by migration and how Rocksteady solves them are as follows: 
+-	Problem -Loaded source can bottleneck migration. Solution - Shift ownership and load to target instantaneously.
+-	Problem - This might result in reads to the target while the migration is in progress. Solution - On demand migration of data to the target. It is adaptive and parallel at source and target.
+-	Problem - Synchronous replication can bottleneck the target. Solution - Defer replication until after migration.
+¥	Instantaneous ownership transfer leverages data skew to move hot data.
+
+Q1: Why not reuse the source¿s recovery log?
+A1: Other data of source is interspersed in the source¿s recovery log, which is actually not required for target recovery.
+
+Q2: Overhead of changing ownership over and again?
+A2: Have a load balancer above to decide what portion of source data I moved to target and avoid target overload.
+

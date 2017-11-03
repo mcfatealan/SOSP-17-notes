@@ -1,0 +1,96 @@
+## Session 5: Kernels, Chair: Don Porter 
+
+### NEVE: Nested Virtualization Extensions for ARM
+Jin Tack Lim, Christoffer Dall, Shih-Wei Li, Jason Nieh (Columbia University); Marc Zyngier (ARM Ltd)
+
+* Having a virtual machine inside a virtual machine, two hypervisors host and guest
+* Using paravirtualization to explore new ways to evaluate architectural features
+* OSes like windows and linux have built in hypervisors
+* Problem: nested virtualization is not supported on ARMv8.0
+* The performance is unknown as there is no hardware with ARMv8.3
+* Contributions: NVE extensions to be included it in the ARMv8.4
+* Development of new hardware has long development cycles (years) --> use simulators / fast models
+* use a paravirtualization approach for evaluating the possibilities of new hardware e.g. 8.3 on 8.0
+*  Similar approach as turtles [OSDI 2010]
+* Evaluation based on a widely used set of application and the KVM hyervisor
+* Application benchmarks suggest that the performance is not great. Why is this ?
+* EL1 / EL2 have each a different set of system registers e.g. TTBR0_EL1 TTBR0_EL2
+* there are many traps from the guest VM exit  and all of the register acesses will trap to EL2. 
+* VM Registers: redirecto to memory, the host hypervisor can get the VM register state from memory
+* Hypervisor control registers: accessed to control execution. needs software redirection
+* Idea: replace register access instruction swith load and store instructions 
+* Result: NVE greatly reduced the performance overhead compared to 8.3 (up to 10x)
+
+
+Q&A
+* No VHD support in ARMv8, we just have this hardware, how do we run 8.1+
+* software is supposed to run in El2 basically, Host hypervisor we do not have the vhd extensin
+
+ * Which operations are faster on x86 and which ones are slower?**
+ * We measure the low level performance of switching between host and vm. the cost of doing that is the same on NVE and x86
+
+* Both ARM and x86 seem to be too lsow to run nested VM. what are the next steps ?
+* We use VirtIO in the VM for devices. those seems to make the nested VM slow
+
+
+
+### My VM is Lighter (and Safer) than your Container
+Filipe Manco (NEC Europe Ltd.); Costin Lupu (University Politehnica of Bucharest); Florian Schmidt, Jose Mendes, Simon Kuenzer, Sumit Sati, Kenichi Yasukata (NEC Europe Ltd.); Costin Raiciu (University Politehnica of Bucharest); Felipe Huici (NEC Europe Ltd.)
+
+* Traditionally: isolation through virtualization, however this is heavy weight
+* Containers: glorified processes, they can share the kernel & OS. lightweight but less isolation
+* VMs as afast and efficient as containers.  10MB footprint, 1-10k on a single host
+* Observation: application only rely on a small part of the software provided by the OS
+* compare with Unikernels: mini OS + just the services such that the application works
+* Tynix: start with a target application & target application. then cleanup to include just a minimal set of services using objdump and dpkg
+* remove drivers etc.  from the Linux kernel
+* insight: the majority of time is spent in the XenStore and creating the virtual devices for the Xen hypervisor
+* Remove the Xen store to improve the performance, then split the VM creation
+* Docker: up to 3000 containers/machine, LightVM up to 8000/machine
+* it is possible to have strong isolation and light weight at the same time
+* sysml.neclab.eu/projects/lightvm
+
+Q&A
+
+* how do those techniques work for containers?
+* it's slightly easier to use this for containers. there is no fundamental problem. they just haven't done it
+
+* Are creeatin this automatic.
+* Unikernels are not automatic, and require effort
+
+* Message passing and shared memory hwat are the implications on security, side channels etc?
+* We use the very same protocol as has been used before, so the guest cannot do more than before. but we haven't looked into it yet. 
+
+*  What if we run multiple process applications in terms of scheudling (apache)
+* Scheduling inside VM is a long standing problem. 
+
+### Multiprogramming a 64 kB Computer Safely and Efficiently
+Amit Levy (Stanford University); Bradford Campbell (University of Virginia); Branden Ghena (University of California, Berkeley); Daniel B Giffin (Stanford University); Pat Pannuto, Prabal Dutta (University of California, Berkeley); Philip Levis (Stanford University)
+
+* Microcontrollers become platforms with very tight resource constraints
+* typically: everything is compiled together and runs in a single adress space. Scary
+* Observation: usb authentication keys are complex systems!
+* We can't use traditionl isolation techniques e.g. malloc is a serious threat to system stability, no VM...
+* MPU: protection bits for 8 memory regions and also rust as a safe systems language
+* We can use the rust type system to at least isolate safety violation sin the kernel
+* We need new memory abstractions instead of the heap
+* Tock: microcontroller OS written in rust
+* platform provider build the hardware and trusted computing base (firmware)
+* Kernel components may come from open source, however platform provider can't catch all bugs
+* Tock's isolations: two capsules, trusted (rust code linked into kernel) and totally untrusted (processes any language)
+* (trusted) Capsule: basically a rust module event driven with a shared stack
+* Processes: memory blcoks protected by the MPU. using position independent code
+* Grants: allocations for one process to contain the resources not accessible by the process
+* use grants to do allocation of heap-like memory requirements
+* grant sections need to be enter explicitly, using a closure
+* 
+
+Q&A
+* How efficient is rust compard to C?
+* We haven't done an extensionve benchmark in rust vs c. Compiled programs in rust end up into assembly that is similar to C
+
+* How many lines of code are not written in rust ?
+* two components, the hardware abstructoin layer (using unsave)
+
+* performance benefit of writing applications in rust?
+* Yes. setting the memory protection hardware is the critical task . if we could use rust all over the place we could get some performance benefit

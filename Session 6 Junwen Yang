@@ -1,0 +1,96 @@
+Hyperkernel: Push-Button Verification of an OS Kernel
+
+
+
+Unix-like OS kernel: based on xv 6
+
+Fully automated verification using z3 solver
+
+ Functional correctness of system calls
+crosscutting properties such as process isolation.
+Limitation:
+
+Uniprocessor
+Initialization & glue code unverified
+
+
+Design  Xv6 vs Hyperkernel
+
+syscall semantics are complicated and require writing loop invariants  VS finite interface
+kernel pointers difficult to reason about VS separate user/kernel  spaces and use identify mapping for kernel
+C is difficult to model VS verify LLVM intermediate representation (IR)
+Q & A
+
+Q1. abstraction, different machine, interface changes, sacrificing for kernel space
+
+user space, different architecture, hide details, different 
+
+Q2. general enough for verification to work
+
+Q3. how to apply to concurrent kernel
+
+something worth thinking about
+
+
+
+Verifying a high-performance crash-safe file system using a tree specification
+
+DFSCQ file system
+
+Precise specification for a subset of POSIX
+
+  supports deferred commit and log bypass writes
+
+Verified, crash-safe file system
+
+Traditional journalling file-system design
+implements most of ext4's optimization 
+Machine-checked proof that implementation meets specification
+Performance on par with ext4 (but DFSCQ has fewer features)
+Q & A
+
+Q1. why tree is a better than log-operation
+
+what data you want to read, it¡¯s much harder to detect by using a tree 
+
+Q2. Haskell is a little bit old, why not for newer language, will it be improved?
+
+same answer as last questions
+
+Q3. will you add more features? e.g. snapshot 
+
+not hard at the specification, but hard to implementation
+
+Komodo: Using verification to disentangle secure-enclave hardware from software
+
+
+
+secure remote computation 
+intel SGX=>  memory encryption =>  all memory is encrypted
+
+
+slow to evolve, need to wait for intel to make change
+
+is complex
+
+hardware is no more trustworthy than software
+
+
+
+verification
+
+prove komodo conforms to the specification of correct execution. simpler, more abstract
+prove that correct spec enforces security properties
+
+
+Q & A
+
+Q1. security, preserve certain types of observations. how to propagate secure properties thru refinement
+
+prove by simulation the abstract state are . not extend to 
+
+
+Q2. side channel attacks?  os change the memory. can only access memory thru monitor enters
+
+not side channels
+control channel attacks not in scope 
