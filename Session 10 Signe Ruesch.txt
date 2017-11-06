@@ -1,0 +1,215 @@
+SESSION 10: SECURITY
+Note taker: Signe Ruesch
+
+
+%%%%%%%%%%%%%%%%%
+DATE & TIME: 31th Oct, 10:15 am - 10:39 am
+SESSION TITLE: Session 10 Security
+TALK TITLE: WatchIT: Who Watches Your IT Guy?
+SPEAKER: Noam Shalev
+KEY POINTS:
+* Currently:
+	- "root is god"
+	- service provider has several privileges, can e.g. see confidential financial data of bank because he is granted access to network
+	- sysadmin has basically unlimited rights to resolve problems
+* Idea:
+	- constrain IT staff's access to network and system
+	- assume we have a malicious IT person / administrator who is reacting to trouble tickets
+* Primer Linux containers:
+	- lightweight virtualization
+	- isolation resembling VMs in 6 aspects, e.g. file system
+* Approach: 
+	- exploit isolation to constrain admin's view of system
+	- create isolation by "punching" 
+		-> create a new container with limited access 
+		-> compartmentalize while retaining superuser privileges
+	- "perforated container" shares resources with host, determined by prediction 
+		-> custom tailoring of container based on trouble ticket
+* Ticket example: Matlab license 
+	- analyze the ticket -> problem is licensing issue -> configure container to only let admin access components relevant for licensing system
+* Perforated container is sandbox for administration
+	- monitor all necessary information, e.g. network traffic and file system operations
+	- use Wireshark for network traffic
+	- new file system for monitoring file system operations: ITFS
+		-> ITFS: monitors all file operations and operates by policy, i.e. it can approve or reject file access based on policies
+* What if prediction is wrong / too restrictive / ...?
+	- "permission broker" installed on host executes operations, which are logged and monitored, can grant further rights
+* Case study & evaluation
+	- evaluate 64k tickets at IBM Research, Israel, to prove feasibility
+	- 3 stages:
+		1. database analysis based on previous tickets
+		2. custom tailoring of containers
+		3. test period of system with 400 new tickets
+	- stage 1:
+		-> clustering using ML (Latent Dirichlet Allocation) for topic extraction
+		-> example licensing: keywords such as "license", "Matlab", "error", ...
+		-> classify tickets in 10 topics based on key words in tickets
+	- stage 2:
+		-> example licensing: grant access only to home directory and license server, but not to other components
+	- stage 3:
+		-> 3 months duration, 400 new tickets
+		-> overall 92% satisfaction rate
+		-> permission broker has to be used for more access in 8% of the cases
+		-> network isolation in 98%
+		-> file system isolation in 62%, all operations monitored by ITFS
+* Conclusion
+	- create perforated container abstraction to provide sandbox for administration tasks
+	- case study to show feasibility
+	- keep access rights of administrators limited 
+
+Q/A:
+1: 
+Q: What if an unpredicted problem occurs and everything crashes, what does the administrator do and what rights are granted?
+A: The system cannot deal with hard faults, so it tries with best effort.
+
+2. 
+Q: The system detects what rights to grant by analyzing ticket descriptions. But what if users cannot clearly describe the problem or all symptoms and the diagnosis is therefore very hard, will that be an issue?
+A: The evaluation shows that classifiers deal well with these cases, but it cannot completely replace a human. We might need an additional person who approves the created containers.
+
+3. 
+Q: The snapshots give certain permissions, but what if an attacker doesn't request all permissions at the same time but instead on different tickets?
+A: This scenario is described in the paper. Administrators and users can collaborate and create fake tickets. There is no solution for this, we try with best effort which makes such an attack harder for adversary.
+
+4. 
+Q: How would you attack your system?
+A: It cannot handle collision, so if an admin collaborates with a user to create fake tickets. This would be the most effective way to compromise the system.
+
+
+
+%%%%%%%%%%%%%%%%%
+DATE & TIME: 31th Oct, 10:40 am - 11:04 am
+SESSION TITLE: Session 10 Security
+TALK TITLE: Secure Page Fusion with VUsion
+SPEAKER: Marco Oliverio
+KEY POINTS:
+* Page fusion used to save memory, for memory de-duplication, etc.
+	- fuse area with same memory to fit more VMs on the same host
+	- but this introduces security vulnerabilities
+	- propose secure page fusion mechanism
+* Primer: page fusion
+	- fuse pages with same content for multiple processes
+	- to provide isolation: have write protection for pages
+	- "merge / unmerge events"
+	- page fusion can be used as an oracle to check for existence of page in system and then leak data
+* Information disclosure: 
+	- guess secret, measure access time to see if its page was merged -> if yes, the secret was guessed correctly
+	- VUsion follows same behavior, so no difference to allow guessing, but "fake merging" to stop copy-on-write attack
+	- multiple other attacks possible
+* Page color attack:
+	- assign color to physical pages, use as oracle without writing to page
+	- guess secret; if guessed correctly, page will merge and change color
+	- attacker can now leak information by just accessing page
+	- VUsion: provide "Share-XOR-Fetch" (S^F) mitigation
+* Permission Handling:
+	- additional page faults and lose fusing -> periodically remove all permissions
+	- page fusion scan is slow: 5 - 10 minutes per scan, every 15 minutes
+	- most fused memory is idle: 
+		* S^F doesn't impact fusion rates, VUsion doesn't impact performance
+		* idle part split in merged and fake merged
+* Memory massaging and Rowhammer attacks:
+	- faulty location: flip bit by quickly and repeatedly reading from it
+	- attacker writes guessed secret in faulty location, waits for page to be merged, then launches attack 
+		* complete compromise possible (Flip Feng Shui)
+	- page is always chosen in predictable manner
+	- countermeasure: randomized allocation 
+* Implementation:
+	- on top of Linux kernel: < 1000 LoC
+	- implements the same behavior but offers simpler code
+	- several optimizations: e.g. working set estimation, THP enhanced version (see paper for more details)
+* Evaluation:
+	- compare VUsion with Linux KSM, run 4 VMs in parallel, one of which runs the workload
+	- fuse rates (measured with 16 VMs): 
+		* memory consumption: KSM requires 60% less memory and VUsion 1% further reduction from that
+		* performance: VUsion has 2.7% overhead compared to KSM
+	- server applications: 
+		* evaluate Redis, Memcached
+		* throughput introduces no significant overhead
+		* for more details see paper
+* Conclusion:
+	- offers an attack surface analysis with new attacks
+	- present secure page fusion design that stops these attacks
+	- implemented prototype with minimal performance and fusion rates overhead
+
+Q/A:
+1. 
+Q: The memory consumption is the same as with KSM, why is this? Do you always have copy-on-write?
+A: We also have copy-on-access, it cannot be maintained as fused. Most accessed pages are in page cache.
+
+2. 
+Q: How do you know that no vulnerabilities will be discovered in the future?
+A: We don't know and this approach is not formally verified. We are imagining situations and offer countermeasures, e.g. removing access and sharing of resources with the attacker.
+
+3. 
+Q: How much of your fusion is fusing the zero page?
+A: This is described in the paper.
+
+4. 
+Q: The latencies look as if they are too large, why is that?
+A: We utilized a 1Gbit network, the same setting as presented in last year's OSDI paper. We also have multiplexed network cards, so it is hard to properly evaluate this.
+
+
+
+%%%%%%%%%%%%%%%%%
+DATE & TIME: 31th Oct, 11:05 am - 11:30 am
+SESSION TITLE: Session 10 Security
+TALK TITLE: The Efficient Server Audit Problem, Deduplicated Re-execution, and the Web
+SPEAKER: Cheng Tan
+KEY POINTS:
+* Scenario: Alice is supposed to run a wiki (PHP) for her company, she runs it on AWS cloud 
+	- an attacker can now launch many attacks, or configuration issues etc. can subvert execution
+	- Alice therefore wants to audit the code
+* Efficient server audit problem:
+	- online phase: the server is untrusted and concurrent
+		* employ a trace collector
+	- audit phase: employ a verifier (who is under Alice's control)
+		* the verifier is weaker than the server, the server overhead is low
+	=> the problem includes that code should be executed as it is written, not to verify that this code is bug-free!
+* Naive re-execution
+	- doesn't save verifier work (who is weaker than the server)
+	- some operations become challenging to repeat them (e.g. writing to database)
+* Approach: split into three parts
+	1. Accelerate re-execution
+		- Poirot's observation: requests have many repeated computations shared with them
+		- de-duplicate computation across requests and execute only the delta of the operations, trust with advice
+		-> the server is untrusted: execute so that identical instructions are only executed once and conduct unanimity checks
+		- verifier will re-execute it only once, but can verify that all branches e.g. in a loop behave the same way
+		- we therefore have no redundant computations anymore
+		- dealing with multi-value variables: different values of same variable are collapsed to scalar value by verifier if possible
+		-> verifier can now accelerate re-execution by exploiting advice from server without trusting it
+	2. Challenging shared objects
+		- assume a simple storage model
+		- re-execute reads: server can fool the verifier, who now cannot detect wrong execution
+		- necessary to validate the log order
+	3. Implementation called Orochi
+		- targets applications based on PHP and SQL
+		- employs the mentioned techniques for de-duplication
+* Evaluation:
+	- there are many de-duplication opportunities, the verifier therefore audits efficiently
+		* compared to re-deduplication because there is no other known comparison possibility
+		* therefore provides a lower bound
+	- price of verification
+		* acceptable CPU and network overhead
+	- only modest application modifications necessary
+	=> offers 5.6-10.9x speedup compared to re-execution, < 10% overhead cost, and moderate changes to applications
+
+* Related Work in the areas of ...
+	- efficient execution integrity (replication, attestation, probability proofs)
+	- computation de-duplication
+	- replay attacks
+* Conclusion: solve the efficient server auditing problem
+	- employ accelerated re-execution technique and new algorithms for verifying 
+	- include proof of correctness
+	- implementation offers overall good performance
+
+Q/A:
+1. 
+Q: How do you deal if you have multiple re-execution of operations but these operations are slightly different every time, e.g. slightly different results? How do you deal with non-deterministic operations, e.g. due to timing?
+A: We try to reconstruct the execution of the operations.
+
+2. 
+Q: You mentioned that modest changes to the PHP applications are necessary, what are these changes and why are they needed?
+A: Our prototype is still an unfinished implementation. Orochi has several constraints, so if we deal for example with a database, we need to modify the application to satisfy these constraints. Sometimes it is necessary to read meta data.
+
+3. 
+Q: How hard would it be to port this to other types of services?
+A: It would not be hard for example for Ruby, Python, or other high-level web languages. It would be more challenging for example for languages completely different to that, e.g. Go.

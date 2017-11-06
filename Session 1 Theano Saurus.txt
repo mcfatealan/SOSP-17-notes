@@ -1,0 +1,68 @@
+-------------------------------------
+DATE & TIME: 29th Oct, 9:00 am
+SESSION TITLE: Session 1 Bug Hunting
+TALK TITLE: ¡°DeepXplore: Automated Whitebox Testing of Deep Learning Systems¡±
+SPEAKER: Kexin Pei
+KEY POINTS:
+Goal: Efficiently test deep learning systems with automatically-generated realistic test inputs
+Problems with existing testing methods: 
+Test set coverage is often insufficient, and there are no good metrics for coverage
+Manual labeling effort required (expensive, not scalable)
+Adversarial testing is not realistic
+Design
+Feed unlabeled seed inputs into multiple DNNs
+Vary the conditions (lighting, occlusion) through gradient descent to maximize differences between outputs
+Insight: testing as an optimization problem -- maximize differences and neuron coverage under different (realistic) constraints, such as varied lighting, through gradient descent
+Q & A:
+How can you test for things you didn¡¯t capture at training time? 
+Training set can be more efficiently augmented by post-hoc modification of images? (sorry, I don¡¯t know ML¡­)
+Could this system provide explanations for how decisions were made in a DNN?
+(could not understand answer)
+What other dimensions of input coverage can be leveraged for testing?
+Set of neurons rather than number of neurons may be interesting, future work will look at that
+How hard to realize in domains beyond image recognition?
+We also look at malware--how does it change functionality? In general, use at least some domain knowledge to define invariants.
+
+
+DATE & TIME: 29th Oct, 9:30 am
+SESSION TITLE: Session 1 Bug Hunting
+TALK TITLE: ¡°Pensieve: Non-Intrusive Failure Reproduction for Distributed Systems Using the Event Chaining Approach¡±
+SPEAKER: Yongle Zhang?
+KEY POINTS: 
+Problem: Failure reproduction is time-consuming.
+Solution: Analyze Java bytecode & logs--non-intrusive (no instrumentation needed), works on JVM-based systems
+Existing solutions are not scalable, are intrusive, and/or affect application performance (instrumentation)
+Insight: developers never debug by reconstructing complete execution path
+Only look at partial trace that may contribute to failure
+Significantly decreases code that needs to be analyzed 
+Events can be causally chained
+Won¡¯t work if error is not logged, if resource exhaustion causes a bug, or systems don¡¯t have clearly-defined input events.
+Q & A:
+Are you making assumptions about what other testing occurs in the system? 
+Might skip code that is relevant to the bug, then evaluates what checks can be added to capture the error
+How difficult is it to trace negative events?
+Dynamic trace can help find the first position where there is divergence
+Does Pensieve work on production traces (very large #nodes, lots of logs)?
+How do you evaluate your work against others for concurrency bugs?
+Don¡¯t need to record if system is running in production cluster--only need to track overhead when developer is debugging.
+
+
+DATE & TIME: 29th Oct, 10:00 am
+SESSION TITLE: Session 1 Bug Hunting
+TALK TITLE: ¡°Canopy: An End-to-End Performance Tracing and Analysis System¡±
+SPEAKER: Jonathan Kaldor
+KEY POINTS:
+Diagnose performance issues that span multiple components: how to make use of trace data?
+Been deployed for about two years, around 1B traces per day 
+Collects RPC structure, counters, continuations, ¡­
+Less than 10% overhead (latency impact) on a single request 
+Requests are instrumented, events are aggregated by traceID ¡ú feature extraction to get relevant metrics, metrics are then sent to appropriate database for use by developers
+Q & A:
+Handling spikes of data?
+Happy to drop things and backfill later on--can shed load gracefully
+Collect data from your own modules--what about for system problems, e.g., DNS resolution?
+Internal systems: instrument, pull in any other data exposed by the system; external systems: capture indirect data (delay, e.g.)
+How to generate unique traceIDs over multiple systems?
+Traces start from a single starting point, collision problem is possible but fairly infrequent (less than 1 per day)
+Possible to find new optimization opportunities with this technique?
+Finding regressions given a baseline vs. performance wins without comparison point? ¡ú somewhat dependent on features available
